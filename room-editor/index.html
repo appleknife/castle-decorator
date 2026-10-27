@@ -1,0 +1,2160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Room Editor — prototype</title>
+<style>
+:root{
+  --bg:#141110; --panel:#1d1917; --panel2:#262020; --line:#332c28;
+  --ink:#efe6da; --dim:#a2938a; --accent:#e0a24a; --accent-dim:#7d5a2c;
+  --good:#7fa86b; --bad:#bf6a5a;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font:14px/1.45 ui-sans-serif,system-ui,"Segoe UI",Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased;overflow:hidden;
+}
+.app{display:grid;grid-template-columns:300px minmax(0,1fr);height:100vh}
+
+aside{
+  border-right:1px solid var(--line);padding:16px;overflow-y:auto;
+  background:linear-gradient(180deg,#191514,#141110 140px);
+}
+h1{font-size:15px;letter-spacing:.05em;margin:0 0 2px;font-weight:650}
+.sub{margin:0 0 16px;color:var(--dim);font-size:11.5px}
+h2{
+  font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--dim);
+  margin:0 0 8px;font-weight:600;
+}
+section{margin-bottom:18px}
+
+.palette{display:grid;grid-template-columns:repeat(2,1fr);gap:7px}
+.card{
+  background:var(--panel);border:1px solid var(--line);border-radius:9px;
+  padding:7px 6px 5px;cursor:grab;text-align:center;transition:.12s;
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+}
+.card:hover{border-color:#4a3f36;background:#241e1b}
+.card:active{cursor:grabbing}
+.card canvas{image-rendering:pixelated;max-width:100%;height:auto}
+.card span{font-size:10px;color:var(--dim);line-height:1.1}
+.card.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+
+.btn{
+  appearance:none;border:1px solid var(--line);background:var(--panel2);color:var(--ink);
+  font:inherit;font-size:12px;padding:7px 10px;border-radius:7px;cursor:pointer;
+  transition:.13s;width:100%;
+}
+.btn:hover{border-color:#4d4239;background:#2d2622}
+.btn.primary{border-color:var(--accent-dim);background:#2a2013;color:#f0d9b0}
+.btn.primary:hover{background:#352718}
+.btnrow{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:7px}
+.btnrow .full{grid-column:1/-1}
+.btn:disabled{opacity:.38;cursor:default}
+
+.palsection{margin-bottom:14px}
+.palsection-h{
+  font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#6f625a;
+  margin:0 0 6px;font-weight:600;padding-left:2px;
+}
+
+.tracks{display:flex;flex-direction:column;gap:5px}
+.track{
+  appearance:none;border:1px solid var(--line);background:var(--panel);color:var(--ink);
+  font:inherit;font-size:12px;padding:7px 10px;border-radius:7px;cursor:pointer;
+  text-align:left;transition:.12s;display:flex;justify-content:space-between;gap:8px;align-items:baseline;
+}
+.track:hover{border-color:#4a3f36;background:#241e1b}
+.track.on{border-color:var(--accent);background:#2a2013;color:#f0d9b0}
+.track em{font-style:normal;color:#6f625a;font-size:10.5px;font-variant-numeric:tabular-nums}
+.track.on em{color:var(--accent)}
+
+.row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:9px 0}
+.row label{color:var(--dim);font-size:12px}
+.seg{display:flex;background:var(--panel2);border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.seg button{
+  appearance:none;border:0;background:transparent;color:var(--dim);font:inherit;
+  font-size:11.5px;padding:5px 9px;cursor:pointer;transition:.12s;
+}
+.seg button.on{background:var(--accent-dim);color:#fff}
+.seg button:hover:not(.on){color:var(--ink)}
+
+.val{color:var(--ink);font-size:11px;font-variant-numeric:tabular-nums;min-width:30px;text-align:right}
+input[type=range]{
+  appearance:none;width:100%;height:18px;background:transparent;cursor:pointer;
+}
+input[type=range]::-webkit-slider-runnable-track{height:3px;background:#3a322c;border-radius:2px}
+input[type=range]::-webkit-slider-thumb{
+  appearance:none;width:12px;height:12px;border-radius:50%;background:var(--accent);
+  margin-top:-4.5px;border:0;
+}
+input[type=range]::-moz-range-track{height:3px;background:#3a322c;border-radius:2px}
+input[type=range]::-moz-range-thumb{width:12px;height:12px;border-radius:50%;background:var(--accent);border:0}
+
+.note{font-size:11px;color:#7d6f66;line-height:1.5;margin:8px 0 0}
+.note b{color:var(--dim);font-weight:600}
+
+/* ---------- stage ---------- */
+main{padding:18px 20px;display:flex;flex-direction:column;gap:12px;min-width:0;overflow:hidden}
+.topbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.topbar h2{margin:0}
+.pill{
+  border:1px solid var(--line);border-radius:20px;padding:2px 9px;
+  background:var(--panel);font-size:11.5px;color:var(--dim);font-variant-numeric:tabular-nums;
+}
+.pill b{color:var(--ink);font-weight:600}
+.pill.good{border-color:#3d5233;color:#a9c99a}
+
+.stage{
+  flex:1;display:flex;align-items:center;justify-content:center;
+  background:
+    repeating-conic-gradient(#241f1d 0% 25%, #1b1716 0% 50%) 50% / 16px 16px;
+  border:1px solid var(--line);border-radius:12px;overflow:hidden;position:relative;
+  min-height:0;
+}
+.stage canvas{image-rendering:pixelated;display:block;touch-action:none;cursor:crosshair}
+.hud{
+  position:absolute;left:10px;bottom:8px;font-size:10.5px;color:#8a7a6d;
+  pointer-events:none;letter-spacing:.02em;
+}
+.empty{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  color:#6b5f57;font-size:12px;
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside>
+    <h1>Room Editor</h1>
+    <p class="sub">Drag furniture in. It snaps itself.</p>
+
+    <section>
+      <h2>Furniture</h2>
+      <input type="search" id="palFilter" placeholder="Filter…" autocomplete="off"
+             style="width:100%;background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:6px 9px;font:inherit;font-size:12px;margin-bottom:10px">
+      <div id="palette"></div>
+      <p class="note">Drag onto the room and move it freely — <b>up and down on the floor is depth</b>, so pieces nearer the bottom sit in front. Get close to another piece and it aligns to that row, or to the back wall or front edge.</p>
+    </section>
+
+    <section>
+      <h2>Room</h2>
+      <div class="row">
+        <label>Placement</label>
+        <div class="seg" id="segSnapMode">
+          <button data-v="free" class="on">Free</button>
+          <button data-v="grid">Grid</button>
+        </div>
+      </div>
+      <div class="row">
+        <label>Snap map</label>
+        <div class="seg" id="segSnap">
+          <button data-v="0" class="on">Off</button>
+          <button data-v="1">Show</button>
+        </div>
+      </div>
+      <div class="row">
+        <label>Grid</label>
+        <div class="seg" id="segGrid">
+          <button data-v="0" class="on">Off</button>
+          <button data-v="1">Show</button>
+        </div>
+      </div>
+      <div class="row">
+        <label>Background</label>
+        <div class="seg" id="segBg">
+          <button data-v="pixel">Pixel</button>
+          <button data-v="raw" class="on">Raw</button>
+        </div>
+      </div>
+      <div class="row">
+        <label>Glow</label>
+        <div class="seg" id="segGlow">
+          <button data-v="1" class="on">On</button>
+          <button data-v="0">Off</button>
+        </div>
+      </div>
+      <div class="row">
+        <label>Light style</label>
+        <div class="seg" id="segLightMode">
+          <button data-v="pixel">Pixel</button>
+          <button data-v="raw" class="on">Raw</button>
+        </div>
+      </div>
+      <div class="row">
+        <label>Lighting</label>
+        <div class="seg" id="segDusk">
+          <button data-v="0" class="on">Day</button>
+          <button data-v="1">Dusk</button>
+        </div>
+      </div>
+      <p class="note"><b>Raw</b> keeps the background as-is — smooth, but off-palette. <b>Pixel</b> quantises it into the shared 27 colours, where <b>Dither</b> is the only thing stopping a gradient collapsing into flat bands.</p>
+    </section>
+
+    <section id="selBox" hidden>
+      <h2>Selected</h2>
+      <p class="note" id="selName" style="margin:0 0 8px"></p>
+      <div class="row">
+        <label>Light source</label>
+        <div class="seg" id="segLight">
+          <button data-v="1">On</button>
+          <button data-v="0" class="on">Off</button>
+        </div>
+      </div>
+      <div class="row" id="glowRow" hidden>
+        <label>Glow point</label>
+        <button class="btn" id="pickGlow" style="width:auto;padding:4px 10px;font-size:11px">Set…</button>
+        <button class="btn" id="resetGlow" style="width:auto;padding:4px 9px;font-size:11px">Default</button>
+      </div>
+      <div class="row">
+        <label>Glow radius</label>
+        <input type="range" id="lightR" min="1" max="6" step="0.1" value="2.4" style="flex:1">
+        <span class="val" id="lightRV">2.4</span>
+      </div>
+      <p class="note" id="glowHint" hidden></p>
+      <div class="btnrow">
+        <button class="btn primary" id="pickArt">Open blender</button>
+        <button class="btn" id="importArt">Import PNG</button>
+        <button class="btn full" id="resetArt">Restore art</button>
+      </div>
+      <p class="note" id="artHint"></p>
+      <input type="file" id="artFile" accept="image/png,image/webp,image/jpeg" hidden>
+      <p class="note">Any piece can be a light source — the lamp has a glow built in, but you can mark a candle, a window or nothing at all.</p>
+    </section>
+
+    <section>
+      <h2>Background</h2>
+      <div class="row">
+        <label>Dither</label>
+        <div class="seg" id="segDither">
+          <button data-v="1" class="on">On</button>
+          <button data-v="0">Off</button>
+        </div>
+      </div>
+      <div class="btnrow">
+        <button class="btn full" id="pickBg">Use my own image…</button>
+      </div>
+      <input type="file" id="bgFile" accept="image/*" hidden>
+      <div class="btnrow">
+        <button class="btn full" id="resetRoom">Reset room</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Save</h2>
+      <p class="note" id="saveNote">Auto-saves in this browser as you work. Download a file to keep it, move it, or back it up.</p>
+      <p class="note" id="storageWarn" hidden style="color:#e2a192"><b>This page can't save to the browser.</b> Opened straight from a file, the browser gives it no storage, so auto-save does nothing. Use <b>Download room</b> to keep your work — or open the page from a local server so auto-save starts working.</p>
+      <div class="btnrow">
+        <button class="btn primary" id="saveRoom">Download room</button>
+        <button class="btn" id="loadRoom">Load room</button>
+        <button class="btn" id="exportPng">Export PNG</button>
+        <button class="btn" id="copyJson">Copy JSON</button>
+      </div>
+      <input type="file" id="roomFile" accept="application/json,.json" hidden>
+    </section>
+
+    <section>
+      <h2>Sound</h2>
+      <div class="tracks" id="trackList"></div>
+      <div class="row" style="margin-top:10px">
+        <label>Music</label>
+        <input type="range" id="vol" min="0" max="100" value="35" style="flex:1">
+        <span class="val" id="volV">35</span>
+      </div>
+      <div class="row">
+        <label>Effects</label>
+        <input type="range" id="sfxVol" min="0" max="100" value="60" style="flex:1">
+        <span class="val" id="sfxVolV">60</span>
+      </div>
+      <div class="row">
+        <label>Loop</label>
+        <div class="seg" id="segLoop">
+          <button data-v="1" class="on">On</button>
+          <button data-v="0">Off</button>
+        </div>
+      </div>
+      <div class="btnrow">
+        <button class="btn full" id="playPause">▶ Play</button>
+      </div>
+      <p class="note">Browsers won't start audio on their own, so the first play has to come from a click. With Loop off, a track stops at the end instead of repeating. Release the Effects slider to hear the switch.</p>
+    </section>
+
+    <section>
+      <h2>Keys</h2>
+      <p class="note"><b>Del</b> remove · <b>←→</b> nudge · <b>Esc</b> cancel · <b>Shift</b> while dragging ignores magnets</p>
+    </section>
+  </aside>
+
+  <main>
+    <div class="topbar">
+      <h2>Stage</h2>
+      <div id="readout" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+    </div>
+    <div class="stage" id="stage">
+      <canvas id="c"></canvas>
+      <div class="hud" id="hud"></div>
+    </div>
+  </main>
+</div>
+
+<div id="blenderModal" style="display:none;position:fixed;inset:0;z-index:60;background:rgba(8,6,5,.9);flex-direction:column">
+  <div style="display:flex;align-items:center;gap:12px;padding:9px 14px;border-bottom:1px solid var(--line);background:var(--panel)">
+    <strong id="blenderTitle" style="font-size:13px">Blend new art</strong>
+    <span class="note" id="blenderSub" style="margin:0"></span>
+    <span style="flex:1"></span>
+    <button class="btn" id="blenderClose" style="width:auto;padding:5px 14px">Close</button>
+  </div>
+  <iframe id="blenderFrame" style="flex:1;border:0;width:100%;background:#141110"></iframe>
+</div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const DPR = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
+
+/* ============================================================
+   The room coordinate system.
+   Everything is measured in tiles; one tile is 16px.
+   ============================================================ */
+const TILE = 16;
+const ROOM = { tx: 26, ty: 14, floorLine: 7 };     // floorLine in tiles from the top
+const PXW = ROOM.tx * TILE;                        // 416
+const PXH = ROOM.ty * TILE;                        // 224
+
+/* the shared palette — same one the blender uses */
+const PAL = [
+  "#1b1410","#2e231b","#463428","#6b4a2f","#8c6540","#b08455","#d4a978",
+  "#f2e3c6","#fff8e7","#2f4430","#4a6b3f","#7a9a55","#a8bf78","#6e2233",
+  "#a33b4a","#d1636a","#263e4d","#3e6478","#6b93a3","#8a6a2f","#d8a844",
+  "#f0cf7a","#c98f7d","#e8b9a3","#4a4a52","#767681","#a7a7ad"
+];
+const PALRGB = PAL.map(h => {
+  const n = parseInt(h.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+});
+
+const C = {
+  ink:"#1b1410", shadow:"#2e231b", wood0:"#463428", wood1:"#6b4a2f", wood2:"#8c6540",
+  wood3:"#b08455", cream:"#f2e3c6", cream2:"#fff8e7", green0:"#2f4430", green1:"#4a6b3f",
+  green2:"#7a9a55", red0:"#6e2233", red1:"#a33b4a", red2:"#d1636a", blue0:"#263e4d",
+  blue1:"#3e6478", blue2:"#6b93a3", gold0:"#8a6a2f", gold1:"#d8a844", gold2:"#f0cf7a"
+};
+
+/* ============================================================
+   Item definitions — the thing that makes "infinite" safe.
+   Each is pure data plus a draw routine. No engine code knows
+   what a bench is.
+   ============================================================ */
+const px = (w, h, draw) => {
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  const g = c.getContext("2d");
+  g.imageSmoothingEnabled = false;
+  draw(g, w, h);
+  return c;
+};
+
+/* Types are mechanics: how a thing sits in the room, what it blocks, what it
+   accepts. Closed set, owned by the engine. An item picks one and may override
+   any field it needs to. */
+const TYPES = {
+  bench:   { category: "Seating",  surface: "floor", layer: 0,  blocks: true,  drop: "wood",    size: [3, 2], anchorsFor: () => [] },
+  chair:   { category: "Seating",  surface: "floor", layer: 0,  blocks: true,  drop: "wood",    size: [1, 2], anchorsFor: () => [], tag: "seat" },
+  table:   { category: "Tables",   surface: "floor", layer: 0,  blocks: true,  drop: "wood",    size: [3, 2],
+             anchorsFor: (w) => [{ x: -0.5, y: 0, takes: ["seat"] }, { x: w + 0.5, y: 0, takes: ["seat"] }] },
+  storage: { category: "Storage",  surface: "floor", layer: 0,  blocks: true,  drop: "wood",    size: [2, 3], anchorsFor: () => [] },
+  rug:     { category: "Rugs",     surface: "floor", layer: -1, blocks: false, drop: "cloth",   size: [4, 3], anchorsFor: () => [] },
+  wall:    { category: "Wall art", surface: "wall",  layer: 0,  blocks: false, drop: "paper",   size: [2, 2], anchorsFor: () => [] },
+  plant:   { category: "Greenery", surface: "floor", layer: 0,  blocks: true,  drop: "foliage", size: [1, 2], anchorsFor: () => [] },
+  light:   { category: "Lighting", surface: "floor", layer: 0,  blocks: true,  drop: "glass",   size: [1, 3], anchorsFor: () => [] },
+  decor:   { category: "Decor",    surface: "floor", layer: 0,  blocks: false, drop: "wood",    size: [1, 1], anchorsFor: () => [] }
+};
+
+const ITEMS = [
+  {
+    id: "bench.oak", name: "Bench", type: "bench", w: 4, h: 2, tags: ["wood", "rustic", "long"],
+    draw: (g) => {
+      g.fillStyle = C.wood1; g.fillRect(4, 0, 4, 20); g.fillRect(56, 0, 4, 20);
+      g.fillStyle = C.wood2; g.fillRect(4, 0, 56, 4);
+      for (const x of [18, 30, 42]){ g.fillStyle = C.wood1; g.fillRect(x, 4, 3, 12); }
+      g.fillStyle = C.wood3; g.fillRect(0, 16, 64, 5);
+      g.fillStyle = C.wood2; g.fillRect(0, 21, 64, 3);
+      g.fillStyle = C.wood0; g.fillRect(4, 24, 5, 8); g.fillRect(55, 24, 5, 8);
+    }
+  },
+  {
+    id: "chair.oak", name: "Chair", type: "chair", w: 1, h: 2, tags: ["wood", "rustic", "single"],
+    draw: (g) => {
+      g.fillStyle = C.wood2; g.fillRect(1, 0, 14, 3);
+      g.fillStyle = C.wood1; g.fillRect(2, 0, 3, 16); g.fillRect(11, 0, 3, 16);
+      g.fillStyle = C.wood3; g.fillRect(0, 16, 16, 4);
+      g.fillStyle = C.wood2; g.fillRect(0, 20, 16, 2);
+      g.fillStyle = C.wood0; g.fillRect(2, 22, 3, 10); g.fillRect(11, 22, 3, 10);
+    }
+  },
+  {
+    id: "table.oak", name: "Table", type: "table", w: 3, h: 2, tags: ["wood", "rustic", "dining"],
+    draw: (g) => {
+      g.fillStyle = C.wood3; g.fillRect(0, 8, 48, 5);
+      g.fillStyle = C.wood2; g.fillRect(0, 13, 48, 3);
+      g.fillStyle = C.wood1; g.fillRect(4, 16, 4, 16); g.fillRect(40, 16, 4, 16);
+      g.fillStyle = C.wood0; g.fillRect(3, 26, 18, 3); g.fillRect(27, 26, 18, 3);
+    }
+  },
+  {
+    id: "bookcase.oak", name: "Bookcase", type: "storage", w: 2, h: 4, tags: ["wood", "books", "tall"],
+    draw: (g) => {
+      g.fillStyle = C.wood1; g.fillRect(0, 0, 32, 64);
+      g.fillStyle = C.shadow; g.fillRect(3, 3, 26, 58);
+      g.fillStyle = C.wood2;
+      for (const y of [17, 33, 49]) g.fillRect(2, y, 28, 3);
+      const rows = [
+        [5, 20, [C.red1, C.blue1, C.gold0, C.green1, C.red2]],
+        [5, 36, [C.blue2, C.red2, C.green1, C.gold1, C.red1]],
+        [5, 52, [C.green1, C.red1, C.blue1, C.red2, C.gold0]]
+      ];
+      for (const [x0, y0, cols] of rows){
+        cols.forEach((c, i) => {
+          g.fillStyle = c;
+          const hh = 9 + ((i * 7) % 5);
+          g.fillRect(x0 + 1 + i * 5, y0 + (11 - hh), 4, hh);
+        });
+      }
+    }
+  },
+  {
+    id: "rug.red", name: "Rug", type: "rug", w: 5, h: 3, tags: ["fabric", "red", "pattern"],
+    draw: (g) => {
+      g.fillStyle = C.red1; g.fillRect(6, 4, 68, 40);
+      g.fillRect(2, 12, 76, 24);
+      g.fillStyle = C.cream; g.fillRect(8, 9, 64, 30); g.fillRect(6, 13, 68, 22);
+      g.fillStyle = C.red2; g.fillRect(12, 12, 56, 25);
+      g.fillStyle = C.red0; g.fillRect(14, 14, 52, 21);
+      g.fillStyle = C.gold1; g.fillRect(34, 20, 12, 9);
+      g.fillStyle = C.gold2; g.fillRect(37, 22, 6, 5);
+    }
+  },
+  {
+    id: "painting.a", name: "Painting", type: "wall", w: 2, h: 2, tags: ["art", "gold", "landscape"],
+    draw: (g) => {
+      g.fillStyle = C.gold0; g.fillRect(0, 0, 32, 32);
+      g.fillStyle = C.gold1; g.fillRect(1, 1, 30, 30);
+      g.fillStyle = C.blue1; g.fillRect(4, 4, 24, 24);
+      g.fillStyle = C.green1; g.fillRect(4, 18, 24, 10);
+      g.fillStyle = C.green2; g.fillRect(6, 15, 8, 5);
+      g.fillStyle = C.gold2; g.fillRect(9, 8, 6, 6);
+      g.fillStyle = C.cream; g.fillRect(20, 10, 5, 3);
+    }
+  },
+  {
+    id: "lamp.floor", name: "Lamp", type: "light", w: 1, h: 3, tags: ["metal", "warm", "glass"],
+    light: { at: [0.5, 0.45], r: 2.4, color: "#ffcf7a", strength: 0.55 },
+    draw: (g) => {
+      g.fillStyle = C.ink; g.fillRect(4, 42, 8, 6);
+      g.fillStyle = C.gold0; g.fillRect(7, 14, 2, 28);
+      for (let i = 0; i < 10; i++){
+        const w = 6 + i;
+        g.fillStyle = i < 3 ? C.cream2 : C.cream;
+        g.fillRect(8 - Math.floor(w / 2), 2 + i, w, 1);
+      }
+      g.fillStyle = C.gold2; g.fillRect(4, 8, 8, 4);
+      g.fillStyle = C.gold1; g.fillRect(3, 12, 10, 2);
+    }
+  },
+  {
+    // Same type as the floor lamp, overridden onto the wall. This is the
+    // override path: inherit the mechanics, change only where it sits.
+    id: "sconce.wall", name: "Sconce", type: "light", w: 1, h: 2, surface: "wall",
+    tags: ["metal", "flame", "warm"],
+    light: { at: [0.5, 0.22], r: 1.9, color: "#ffcf7a", strength: 0.6 },
+    draw: (g) => {
+      g.fillStyle = C.wood1; g.fillRect(3, 25, 10, 5);      // wall plate
+      g.fillStyle = C.gold0; g.fillRect(4, 26, 8, 3);
+      g.fillStyle = C.gold0; g.fillRect(7, 15, 2, 11);      // arm
+      g.fillStyle = C.gold1; g.fillRect(4, 12, 8, 3);       // cup
+      g.fillStyle = C.cream;  g.fillRect(6, 6, 4, 7);       // candle
+      g.fillStyle = C.cream2; g.fillRect(6, 6, 1, 7);
+      g.fillStyle = C.gold2;  g.fillRect(7, 2, 2, 4);       // flame
+      g.fillStyle = C.cream2; g.fillRect(7, 3, 1, 2);
+    }
+  },
+  {
+    id: "plant.pot", name: "Plant", type: "plant", w: 1, h: 2, tags: ["terracotta", "green", "nature"],
+    draw: (g) => {
+      g.fillStyle = C.green0; g.fillRect(6, 4, 4, 18);
+      g.fillStyle = C.green1;
+      g.fillRect(2, 8, 6, 12); g.fillRect(9, 5, 5, 15); g.fillRect(4, 2, 5, 8);
+      g.fillStyle = C.green2; g.fillRect(3, 7, 3, 6); g.fillRect(10, 4, 3, 7);
+      g.fillStyle = C.wood1; g.fillRect(2, 22, 12, 10);
+      g.fillStyle = C.wood2; g.fillRect(1, 20, 14, 3);
+      g.fillStyle = C.wood0; g.fillRect(4, 26, 8, 2);
+    }
+  }
+];
+/** Fill in every field an item didn't state, from its type. */
+function resolveTypes(){
+  for (const it of ITEMS){
+    if (!TYPES[it.type]) it.type = "decor";
+    const T = TYPES[it.type];
+    if (it.w === undefined) it.w = T.size[0];
+    if (it.h === undefined) it.h = T.size[1];
+    if (it.surface === undefined) it.surface = T.surface;
+    if (it.layer === undefined) it.layer = T.layer;
+    if (it.blocks === undefined) it.blocks = T.blocks;
+    if (it.category === undefined) it.category = T.category;
+    if (it.drop === undefined) it.drop = T.drop;
+    if (it.tag === undefined) it.tag = T.tag || it.type;
+    if (it.anchors === undefined) it.anchors = T.anchorsFor ? T.anchorsFor(it.w) : [];
+    if (!Array.isArray(it.tags)) it.tags = [];
+  }
+}
+resolveTypes();
+
+const byId = Object.fromEntries(ITEMS.map(i => [i.id, i]));
+
+/* Custom art, keyed by item id, stored separately from the room save.
+   Anything here wins over the procedural draw. */
+const ART_KEY = "room-editor.art.v1";
+const artOverrides = {};
+let booted = false;
+try {
+  const raw = localStorage.getItem(ART_KEY);
+  if (raw) Object.assign(artOverrides, JSON.parse(raw));
+} catch (e){ /* no storage on file:// — fine, art just won't persist */ }
+
+function saveArt(){
+  try { localStorage.setItem(ART_KEY, JSON.stringify(artOverrides)); }
+  catch (e){ flashNote("Couldn't store that art \u2014 storage may be full.", true); }
+}
+
+/** Build an item's sprite: custom art if present, otherwise the draw routine. */
+function buildSprite(it){
+  const w = it.w * TILE, h = it.h * TILE;
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  const g = c.getContext("2d");
+  it.sprite = c;
+
+  const dataUrl = artOverrides[it.id];
+  if (!dataUrl){
+    g.imageSmoothingEnabled = false;
+    it.draw(g, w, h);
+    return c;
+  }
+
+  const img = new Image();
+  img.onload = () => {
+    g.clearRect(0, 0, w, h);
+    // fit inside the tile box, bottom-centre, and never upscale pixel art
+    const k = Math.min(1, w / img.width, h / img.height);
+    const dw = Math.max(1, Math.round(img.width * k));
+    const dh = Math.max(1, Math.round(img.height * k));
+    g.imageSmoothingEnabled = k < 1;          // only smooth when actually shrinking
+    g.imageSmoothingQuality = "high";
+    g.drawImage(img, Math.round((w - dw) / 2), h - dh, dw, dh);
+    buildPalette();
+    if (booted) render();
+  };
+  img.src = dataUrl;
+  return c;
+}
+
+/* sprites are rendered once at their natural pixel size */
+for (const it of ITEMS) buildSprite(it);
+
+/* ============================================================
+   Palette conditioning — the blender's core, reused.
+   ============================================================ */
+function halve(d, w, h){
+  const nw = Math.max(1, w >> 1), nh = Math.max(1, h >> 1);
+  const o = new Uint8ClampedArray(nw * nh * 4);
+  for (let y = 0; y < nh; y++){
+    for (let x = 0; x < nw; x++){
+      let r = 0, g = 0, b = 0, a = 0, n = 0;
+      for (let dy = 0; dy < 2; dy++){
+        const sy = y * 2 + dy; if (sy >= h) continue;
+        for (let dx = 0; dx < 2; dx++){
+          const sx = x * 2 + dx; if (sx >= w) continue;
+          const i = (sy * w + sx) * 4;
+          const al = d[i + 3] / 255;
+          r += d[i] * al; g += d[i + 1] * al; b += d[i + 2] * al; a += al; n++;
+        }
+      }
+      const j = (y * nw + x) * 4;
+      if (a > 0 && n > 0){ o[j] = r / a; o[j + 1] = g / a; o[j + 2] = b / a; o[j + 3] = (a / n) * 255; }
+    }
+  }
+  return { d: o, w: nw, h: nh };
+}
+
+function areaResize(d, sw, sh, tw, th){
+  const o = new Uint8ClampedArray(tw * th * 4);
+  const sx = sw / tw, sy = sh / th;
+  for (let y = 0; y < th; y++){
+    const y0 = y * sy, y1 = (y + 1) * sy;
+    for (let x = 0; x < tw; x++){
+      const x0 = x * sx, x1 = (x + 1) * sx;
+      let r = 0, g = 0, b = 0, a = 0, ws = 0;
+      for (let yy = Math.max(0, Math.floor(y0)); yy < Math.min(sh, Math.ceil(y1)); yy++){
+        const wy = Math.min(y1, yy + 1) - Math.max(y0, yy);
+        if (wy <= 0) continue;
+        for (let xx = Math.max(0, Math.floor(x0)); xx < Math.min(sw, Math.ceil(x1)); xx++){
+          const wx = Math.min(x1, xx + 1) - Math.max(x0, xx);
+          if (wx <= 0) continue;
+          const wt = wx * wy;
+          const i = (yy * sw + xx) * 4;
+          const al = d[i + 3] / 255;
+          r += d[i] * al * wt; g += d[i + 1] * al * wt; b += d[i + 2] * al * wt;
+          a += al * wt; ws += wt;
+        }
+      }
+      const j = (y * tw + x) * 4;
+      if (a > 0.0001 && ws > 0){
+        o[j] = r / a; o[j + 1] = g / a; o[j + 2] = b / a; o[j + 3] = (a / ws) * 255;
+      }
+    }
+  }
+  return o;
+}
+
+function nearestIdx(r, g, b){
+  let best = 0, bd = Infinity;
+  for (let i = 0; i < PALRGB.length; i++){
+    const p = PALRGB[i];
+    const rm = (r + p[0]) / 2;
+    const dr = r - p[0], dg = g - p[1], db = b - p[2];
+    const d = (2 + rm / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rm) / 256) * db * db;
+    if (d < bd){ bd = d; best = i; if (d === 0) break; }
+  }
+  return best;
+}
+
+/** Downscale to room resolution, then snap every pixel to the palette. */
+const B4 = [[0,8,2,10],[12,4,14,6],[3,11,1,9],[15,7,13,5]];
+
+function condition(img, tw, th, dither){
+  // cap the source so a 4000px AI render can't blow up the pixel buffer
+  const MAX = 1600;
+  const k = Math.min(1, MAX / Math.max(img.width, img.height));
+  const iw = Math.max(1, Math.round(img.width * k));
+  const ih = Math.max(1, Math.round(img.height * k));
+
+  const src = document.createElement("canvas");
+  src.width = iw; src.height = ih;
+  const sg = src.getContext("2d");
+  sg.imageSmoothingQuality = "high";
+  sg.drawImage(img, 0, 0, iw, ih);
+  const sd = sg.getImageData(0, 0, iw, ih).data;
+
+  let cur = { d: sd, w: iw, h: ih };
+  while (cur.h > th * 2 && cur.w > 1 && cur.h > 1) cur = halve(cur.d, cur.w, cur.h);
+  const small = areaResize(cur.d, cur.w, cur.h, tw, th);
+
+  const out = new ImageData(tw, th);
+  const amp = dither ? 44 : 0;
+  for (let y = 0; y < th; y++){
+    for (let x = 0; x < tw; x++){
+      const i = (y * tw + x) * 4;
+      if (small[i + 3] < 110){ out.data[i + 3] = 0; continue; }
+      const o = amp ? (B4[y & 3][x & 3] / 16 - 0.5) * amp : 0;
+      const p = PALRGB[nearestIdx(small[i] + o, small[i + 1] + o, small[i + 2] + o)];
+      out.data[i] = p[0]; out.data[i + 1] = p[1]; out.data[i + 2] = p[2]; out.data[i + 3] = 255;
+    }
+  }
+  const c = document.createElement("canvas");
+  c.width = tw; c.height = th;
+  c.getContext("2d").putImageData(out, 0, 0);
+  return c;
+}
+
+/* ============================================================
+   A generated "great hall" background, drawn at 6x then blended.
+   ============================================================ */
+function makeBackground(){
+  const K = 6;
+  const W = PXW * K, H = PXH * K;
+  const c = document.createElement("canvas");
+  c.width = W; c.height = H;
+  const g = c.getContext("2d");
+  const fl = ROOM.floorLine * TILE * K;
+
+  // wall, with a soft vertical gradient so the blend has something to chew on
+  const wg = g.createLinearGradient(0, 0, 0, fl);
+  wg.addColorStop(0, "#4a3828");
+  wg.addColorStop(0.55, "#5d4831");
+  wg.addColorStop(1, "#6d5539");
+  g.fillStyle = wg; g.fillRect(0, 0, W, fl);
+
+  // wallpaper stripes
+  for (let x = 0; x < W; x += 26 * K){
+    g.fillStyle = "rgba(0,0,0,0.07)";
+    g.fillRect(x, 0, 13 * K, fl);
+  }
+
+  // wainscoting
+  const wainH = 22 * K;
+  const wainTop = fl - wainH;
+  const vg = g.createLinearGradient(0, wainTop, 0, fl);
+  vg.addColorStop(0, "#6b4a2f");
+  vg.addColorStop(1, "#4a3423");
+  g.fillStyle = vg; g.fillRect(0, wainTop, W, wainH);
+  g.fillStyle = "rgba(255,240,210,0.16)";
+  g.fillRect(0, wainTop, W, 2 * K);
+  for (let x = 0; x < W; x += 30 * K){
+    g.fillStyle = "rgba(0,0,0,0.16)";
+    g.fillRect(x, wainTop + 4 * K, 2 * K, wainH - 6 * K);
+  }
+
+  // floorboards
+  const fg = g.createLinearGradient(0, fl, 0, H);
+  fg.addColorStop(0, "#6b4f33");
+  fg.addColorStop(1, "#4e3a25");
+  g.fillStyle = fg; g.fillRect(0, fl, W, H - fl);
+  const board = 11 * K;
+  const boards = Math.ceil((H - fl) / board) + 1;
+  for (let i = 0; i < boards; i++){
+    const y = fl + i * board;
+    g.fillStyle = "rgba(0,0,0,0.22)";
+    g.fillRect(0, y, W, 1.5 * K);
+    g.fillStyle = "rgba(255,235,205,0.10)";
+    g.fillRect(0, y + 1.5 * K, W, 1 * K);
+  }
+
+  // a tall window
+  const wx = 44 * K, wy = 12 * K, ww = 40 * K, wh = 54 * K;
+  g.fillStyle = "#3a2c1f"; g.fillRect(wx - 3 * K, wy - 3 * K, ww + 6 * K, wh + 6 * K);
+  const sky = g.createLinearGradient(0, wy, 0, wy + wh);
+  sky.addColorStop(0, "#8fc0d8");
+  sky.addColorStop(1, "#cfe4ee");
+  g.fillStyle = sky; g.fillRect(wx, wy, ww, wh);
+  g.fillStyle = "#3a2c1f";
+  g.fillRect(wx + ww / 2 - 1.5 * K, wy, 3 * K, wh);
+  g.fillRect(wx, wy + wh / 2 - 1.5 * K, ww, 3 * K);
+  // light spill
+  const spill = g.createRadialGradient(wx + ww / 2, wy + wh, 10 * K, wx + ww / 2, wy + wh, 90 * K);
+  spill.addColorStop(0, "rgba(255,244,214,0.30)");
+  spill.addColorStop(1, "rgba(255,244,214,0)");
+  g.fillStyle = spill; g.fillRect(0, 0, W, H);
+
+  // a hanging banner
+  g.fillStyle = "#7a2231"; g.fillRect(232 * K, 6 * K, 34 * K, 46 * K);
+  g.fillStyle = "#a33b4a"; g.fillRect(236 * K, 10 * K, 26 * K, 38 * K);
+  g.fillStyle = "#d8a844"; g.fillRect(243 * K, 20 * K, 12 * K, 12 * K);
+  g.fillStyle = "#7a2231";
+  g.beginPath(); g.moveTo(232 * K, 52 * K); g.lineTo(249 * K, 60 * K); g.lineTo(266 * K, 52 * K);
+  g.closePath(); g.fill();
+
+  return c;
+}
+
+/* ============================================================
+   Room state
+   ============================================================ */
+let rawBg = makeBackground();
+let bgPixel = condition(rawBg, PXW, PXH, true);
+let showRaw = true;
+let showSnap = false;
+let showGrid = false;
+let placements = [];
+let selected = -1;
+let picking = false;      // waiting for the click that sets the glow origin
+let carry = null;         // { def, x, y, from: index|null, live: bool }
+let guides = [];
+const state = { snapMode: "free", bgDither: true, glow: true, dusk: false, lightMode: "raw" };
+
+function defaultRoom(){
+  placements = [
+    { item: "bookcase.oak", x: 1,  y: 8 },
+    { item: "bench.oak",    x: 4,  y: 8 },
+    { item: "painting.a",   x: 4,  y: 4 },
+    { item: "table.oak",    x: 12, y: 8 },
+    { item: "chair.oak",    x: 11, y: 8 },
+    { item: "chair.oak",    x: 15, y: 8 },
+    { item: "lamp.floor",   x: 18, y: 8 },
+    { item: "sconce.wall",  x: 21, y: 4 },
+    { item: "rug.red",      x: 7,  y: 12 },
+    { item: "plant.pot",    x: 10, y: 11 }
+  ];
+  selected = -1;
+}
+
+/* ============================================================
+   Snapping — the "magnetism"
+   ============================================================ */
+const MAGNET = { seat: 0.95, edge: 0.5, wall: 0.5 };
+
+/**
+ * Resolve a pointer position into a legal placement.
+ * Magnets are tested against the RAW position, before any grid rounding —
+ * rounding first was what made them unreachable.
+ */
+function snapPosition(def, rawX, rawY, ignoreMagnet){
+  const guides = [];
+  const gridding = state.snapMode === "grid";
+  const isWall = def.surface === "wall";
+
+  // Floor items move on a depth axis: the baseline is free between the back
+  // wall and the front edge, which is what lets furniture sit in rows.
+  let y;
+  if (isWall){
+    let yy = Math.min(rawY, ROOM.floorLine - 0.25);
+    if (gridding) yy = Math.round(yy * 2) / 2;
+    y = yy;
+  } else {
+    y = Math.max(ROOM.floorLine, Math.min(ROOM.ty, rawY));
+    if (gridding){
+      y = Math.round(y);
+    } else {
+      guides.push({ type: "floor" });
+      if (!ignoreMagnet){
+        const depth = [
+          { y: ROOM.floorLine, d: Math.abs(y - ROOM.floorLine) },
+          { y: ROOM.ty,        d: Math.abs(y - ROOM.ty) }
+        ];
+        for (const p of placements){
+          if (carry && carry.from !== null && placements[carry.from] === p) continue;
+          if (byId[p.item].surface !== "floor") continue;
+          depth.push({ y: p.y, d: Math.abs(y - p.y) });
+        }
+        depth.sort((a, b) => a.d - b.d);
+        if (depth.length && depth[0].d > 0 && depth[0].d < 0.45){
+          y = depth[0].y;
+          guides.push({ type: "depth", y });
+        }
+      }
+    }
+  }
+
+  const minX = 0, maxX = ROOM.tx - def.w;
+  // free mode does not quantise at all — the magnets are the only thing that move it
+  let x = gridding ? Math.round(rawX) : rawX;
+  x = Math.max(minX, Math.min(maxX, x));
+
+  if (ignoreMagnet) return { x, y, guides: [] };
+
+  // Candidate positions, with how far the pointer is from each.
+  const cands = [];
+  cands.push({ x: minX, d: Math.abs(rawX - minX), kind: "wall", px: 0 });
+  cands.push({ x: maxX, d: Math.abs(rawX - maxX), kind: "wall", px: ROOM.tx });
+
+  for (const p of placements){
+    if (carry && carry.from !== null && placements[carry.from] === p) continue;
+    const pd = byId[p.item];
+    if (pd.surface !== def.surface) continue;
+
+    // seats: a chair wants to be centred on the anchor
+    for (const a of pd.anchors || []){
+      if (!a.takes.includes(def.tag)) continue;
+      if (!isWall && Math.abs(p.y - y) > 1.6) continue;   // pull in from the same depth only
+      const ax = p.x + (a.x || 0);
+      const ay = p.y + (a.y || 0);
+      const tx = ax - def.w / 2;
+      cands.push({ x: tx, d: Math.abs(rawX - tx), kind: "seat", ax, ay });
+    }
+
+    // flush sides, only at comparable depth
+    if (Math.abs(p.y - y) < 0.9){
+      const right = p.x + pd.w;
+      const left = p.x - def.w;
+      cands.push({ x: right, d: Math.abs(rawX - right), kind: "edge", px: right });
+      cands.push({ x: left, d: Math.abs(rawX - left), kind: "edge", px: p.x });
+    }
+  }
+
+  cands.sort((a, b) => a.d - b.d);
+  for (const c of cands){
+    if (c.d > MAGNET[c.kind]) continue;
+    x = c.x;
+    if (c.kind === "seat") guides.push({ type: "seat", ax: c.ax, ay: c.ay });
+    else guides.push({ type: "edge", px: c.px });
+    break;
+  }
+
+  x = Math.max(minX, Math.min(maxX, x));
+  return { x, y, guides };
+}
+
+/* ============================================================
+   Rendering
+   ============================================================ */
+const scene = document.createElement("canvas");
+scene.width = PXW; scene.height = PXH;
+const sctx = scene.getContext("2d");
+
+let displayScale = 3;
+
+const DEFAULT_LIGHT = { at: [0.5, 0.32], r: 2.0, color: "#ffcf7a", strength: 0.5 };
+
+function hexToRgbArr(h){
+  const n = parseInt(h.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+/**
+ * Light as a dithered falloff rather than stacked discs.
+ * Each pixel's intensity is quantised to a handful of alpha levels, and a 4x4
+ * Bayer threshold decides which side of a boundary it falls on — so the ramp
+ * stipples instead of drawing visible rings.
+ */
+/* A light is not one circle. Four overlapping lobes — hot core, a pool wider
+   than it is tall, a wide faint halo, and a splash on the floor — sum into an
+   asymmetric shape with no findable boundary. */
+const LOBES = [
+  { r: 0.45, a: 0.30, sq: 1.00, oy: 0.00 },
+  { r: 1.00, a: 0.35, sq: 0.72, oy: 0.00 },
+  { r: 1.55, a: 0.12, sq: 0.88, oy: 0.10 },
+  { r: 0.75, a: 0.13, sq: 0.55, oy: 0.45 }
+];
+const LIGHT_REACH = 1.95;
+
+function lobesAt(L, dx, dy, radiusScale, dim){
+  let t = 0;
+  for (const b of LOBES){
+    const r = L.r * b.r * radiusScale;
+    if (r <= 0) continue;
+    const ex = dx / r;
+    const ey = (dy - b.oy * TILE) / (r * b.sq);
+    const d2 = ex * ex + ey * ey;
+    if (d2 >= 1) continue;
+    t += b.a * Math.pow(1 - Math.sqrt(d2), 2.2);
+  }
+  return t * dim;
+}
+
+/** Light knows which surface it is falling on: a dimmer wash above the floor
+    line, a flattened pool on the floor itself. Takes absolute room coords. */
+function lightAt(L, x, y){
+  if (y < L.floorY) return lobesAt(L, x - L.cx, y - L.cy, 1, 0.80);
+  return lobesAt(L, x - L.cx, (y - L.baseY) * 2.7, 1.18, 1.05);
+}
+
+function drawLights(g, lights){
+  if (!lights.length) return;
+
+  let x0 = PXW, y0 = PXH, x1 = 0, y1 = 0, any = false;
+  for (const L of lights){
+    if (L.r <= 0) continue;
+    any = true;
+    const reach = L.r * LIGHT_REACH;
+    x0 = Math.min(x0, Math.floor(L.cx - reach));
+    y0 = Math.min(y0, Math.floor(L.cy - reach));
+    x1 = Math.max(x1, Math.ceil(L.cx + reach));
+    y1 = Math.max(y1, Math.ceil(L.baseY + reach));   // pool sits below the source
+  }
+  if (!any) return;
+  x0 = Math.max(0, x0); y0 = Math.max(0, y0);
+  x1 = Math.min(PXW, x1); y1 = Math.min(PXH, y1);
+  const w = x1 - x0, h = y1 - y0;
+  if (w <= 0 || h <= 0) return;
+
+  const img = g.getImageData(x0, y0, w, h);
+  const d = img.data;
+  const LEVELS = 7;
+
+  for (const L of lights){
+    if (L.r <= 0) continue;
+    const reach = L.r * LIGHT_REACH;
+    const lx0 = Math.max(x0, Math.floor(L.cx - reach));
+    const ly0 = Math.max(y0, Math.floor(L.cy - reach));
+    const lx1 = Math.min(x1, Math.ceil(L.cx + reach));
+    const ly1 = Math.min(y1, Math.ceil(L.baseY + reach));
+    for (let y = ly0; y < ly1; y++){
+      for (let x = lx0; x < lx1; x++){
+        const t = lightAt(L, x + 0.5, y + 0.5);
+        if (t <= 0.002) continue;
+        const bayer = B4[y & 3][x & 3] / 16;        // 0 .. .94, fixed in room space
+        const q = Math.floor(t * LEVELS + bayer) / LEVELS;
+        const a = q * L.strength;
+        if (a <= 0.004) continue;
+        const i = ((y - y0) * w + (x - x0)) * 4;
+        d[i]     = Math.min(255, d[i]     + L.col[0] * a);
+        d[i + 1] = Math.min(255, d[i + 1] + L.col[1] * a);
+        d[i + 2] = Math.min(255, d[i + 2] + L.col[2] * a);
+      }
+    }
+  }
+  g.putImageData(img, x0, y0);
+}
+
+/** Every light in the room, in room-pixel coordinates. */
+function collectLights(){
+  if (!state.glow) return [];
+  const out = [];
+  for (let i = 0; i < placements.length; i++){
+    const p = placements[i], d = byId[p.item];
+    if (p.light === false) continue;
+    const L = d.light || (p.light ? DEFAULT_LIGHT : null);
+    if (!L) continue;
+    // a lamp being dragged carries its light with it
+    const px = (carry && carry.from === i) ? carry.x : p.x;
+    const py = (carry && carry.from === i) ? carry.y : p.y;
+    const at = p.lightAt || L.at;          // per-placement origin, if one was set
+    out.push({
+      cx: (px + at[0]) * TILE,
+      cy: (py - d.h + at[1]) * TILE,
+      r: (p.lightR || L.r) * TILE,
+      col: hexToRgbArr(L.color || DEFAULT_LIGHT.color),
+      strength: L.strength || DEFAULT_LIGHT.strength,
+      baseY: py * TILE,
+      floorY: ROOM.floorLine * TILE
+    });
+  }
+  return out;
+}
+
+/** Raw light: a real radial gradient drawn above the upscaled scene, so it is
+    smooth at screen resolution instead of being made of room pixels. */
+function paintRawLights(g, S){
+  const lights = collectLights();
+  if (!lights.length) return;
+  const W = g.canvas.width, H = g.canvas.height;
+  const fl = ROOM.floorLine * TILE * S;
+
+  g.save();
+  g.globalCompositeOperation = "lighter";
+
+  // wall wash — held back, because a wall is not the light's source of bounce
+  g.save();
+  g.beginPath(); g.rect(0, 0, W, fl); g.clip();
+  for (const L of lights) drawLobePass(g, L, S, 1, 0.80, L.cy, 1);
+  g.restore();
+
+  // floor pool — flattened and brighter, hugging the floor line
+  g.save();
+  g.beginPath(); g.rect(0, fl, W, H - fl); g.clip();
+  for (const L of lights) drawLobePass(g, L, S, 1.18, 1.05, L.baseY, 0.37);
+  g.restore();
+
+  g.restore();
+}
+
+function drawLobePass(g, L, S, radiusScale, dim, cyPx, extraSquash){
+  const c0 = L.col[0], c1 = L.col[1], c2 = L.col[2];
+  for (const b of LOBES){
+    const rad = L.r * b.r * radiusScale * S;
+    if (rad <= 0) continue;
+    const a = L.strength * b.a * dim;
+    if (a <= 0.002) continue;
+    g.save();
+    g.translate(L.cx * S, (cyPx + b.oy * TILE) * S);
+    g.scale(1, b.sq * extraSquash);
+    const grd = g.createRadialGradient(0, 0, 0, 0, 0, rad);
+    for (let i = 0; i <= 8; i++){
+      const u = i / 8;
+      const v = Math.pow(1 - u, 2.2);          // asymptotic — no rim at the edge
+      grd.addColorStop(u, `rgba(${c0},${c1},${c2},${(a * v).toFixed(4)})`);
+    }
+    g.fillStyle = grd;
+    g.fillRect(-rad, -rad, rad * 2, rad * 2);
+    g.restore();
+  }
+}
+
+function computeScale(){
+  const stage = $("stage");
+  const availW = Math.max(200, stage.clientWidth - 24);
+  const availH = Math.max(160, stage.clientHeight - 24);
+  const s = Math.floor(Math.min(availW / PXW, availH / PXH) * DPR);
+  return Math.max(1, Math.min(s, 6 * DPR));
+}
+
+function drawScene(){
+  const g = sctx;
+  g.imageSmoothingEnabled = false;
+  g.clearRect(0, 0, PXW, PXH);
+
+  // background
+  if (showRaw){
+    // fair comparison: smooth downscale, no palette
+    g.imageSmoothingEnabled = true;
+    g.imageSmoothingQuality = "high";
+    g.drawImage(rawBg, 0, 0, PXW, PXH);
+    g.imageSmoothingEnabled = false;
+  } else {
+    g.drawImage(bgPixel, 0, 0);
+  }
+
+  // snap map
+  if (showSnap){
+    g.fillStyle = "rgba(90,150,200,0.16)";
+    g.fillRect(0, ROOM.floorLine * TILE, PXW, PXH - ROOM.floorLine * TILE);
+    g.fillStyle = "rgba(224,162,74,0.13)";
+    g.fillRect(0, 0, PXW, ROOM.floorLine * TILE);
+    g.fillStyle = "rgba(255,200,120,0.55)";
+    g.fillRect(0, ROOM.floorLine * TILE - 1, PXW, 1);
+  }
+
+  if (showGrid){
+    g.fillStyle = "rgba(255,240,210,0.10)";
+    for (let x = 1; x < ROOM.tx; x++) g.fillRect(x * TILE, 0, 1, PXH);
+    for (let y = 1; y < ROOM.ty; y++) g.fillRect(0, y * TILE, PXW, 1);
+  }
+
+  // shadows first, then items sorted by layer then baseline
+  const placed = placements.map((p, i) => ({ p, i, d: byId[p.item] }))
+    .filter(o => !(carry && carry.from === o.i));
+
+  for (const { p, d } of placed){
+    if (d.surface !== "floor" || d.layer < 0) continue;
+    const px0 = p.x * TILE + (d.w * TILE) / 2;
+    const py0 = p.y * TILE - 3;
+    g.fillStyle = "rgba(0,0,0,0.22)";
+    g.beginPath();
+    g.ellipse(px0, py0, (d.w * TILE) * 0.42, 4, 0, 0, Math.PI * 2);
+    g.fill();
+  }
+
+  placed.sort((a, b) => (a.d.layer - b.d.layer) || (a.p.y - b.p.y) || (a.p.x - b.p.x));
+  for (const { p, d } of placed){
+    g.drawImage(d.sprite, Math.round(p.x * TILE), Math.round(p.y * TILE - d.h * TILE));
+  }
+
+  // dusk pulls everything down, then light sources add back on top
+  if (state.dusk){
+    g.fillStyle = "rgba(10,12,26,0.58)";
+    g.fillRect(0, 0, PXW, PXH);
+  }
+
+  if (state.glow && state.lightMode === "pixel"){
+    drawLights(g, collectLights());
+  }
+
+  // the piece in hand
+  if (carry && carry.live){
+    const d = carry.def;
+    const dx = Math.round(carry.x * TILE), dy = Math.round(carry.y * TILE - d.h * TILE);
+    g.globalAlpha = 0.85;
+    g.drawImage(d.sprite, dx, dy);
+    g.globalAlpha = 1;
+    g.strokeStyle = "rgba(240,207,122,0.9)";
+    g.lineWidth = 1;
+    g.strokeRect(dx + 0.5, dy + 0.5, d.w * TILE - 1, d.h * TILE - 1);
+  }
+
+  // magnet feedback — drawn last so it reads over the piece in hand
+  for (const gd of guides){
+    if (gd.type === "floor"){
+      g.fillStyle = "rgba(224,162,74,0.22)";
+      g.fillRect(0, ROOM.floorLine * TILE, PXW, 1);
+    }
+    if (gd.type === "depth"){
+      g.fillStyle = "rgba(255,214,130,0.7)";
+      g.fillRect(0, Math.round(gd.y * TILE), PXW, 1);
+    }
+    if (gd.type === "edge"){
+      g.fillStyle = "rgba(240,207,122,0.9)";
+      g.fillRect(Math.round(gd.px * TILE), 0, 1, PXH);
+    }
+    if (gd.type === "seat"){
+      const sx = gd.ax * TILE, sy = gd.ay * TILE;
+      g.strokeStyle = "rgba(240,207,122,0.95)";
+      g.lineWidth = 1;
+      g.beginPath(); g.arc(sx, sy, 7, 0, Math.PI * 2); g.stroke();
+      g.beginPath(); g.arc(sx, sy, 2.5, 0, Math.PI * 2);
+      g.fillStyle = "rgba(240,207,122,0.95)"; g.fill();
+      if (carry){
+        g.strokeStyle = "rgba(240,207,122,0.55)";
+        g.beginPath();
+        g.moveTo(carry.x * TILE + (carry.def.w * TILE) / 2, carry.y * TILE);
+        g.lineTo(sx, sy);
+        g.stroke();
+      }
+    }
+  }
+
+  // selection
+  if (selected >= 0 && placements[selected]){
+    const p = placements[selected], d = byId[p.item];
+    g.strokeStyle = "rgba(224,162,74,0.85)";
+    g.lineWidth = 1;
+    const sx = Math.round(p.x * TILE) + 0.5, sy = Math.round(p.y * TILE - d.h * TILE) + 0.5;
+    g.strokeRect(sx, sy, Math.round(d.w * TILE) - 1, Math.round(d.h * TILE) - 1);
+
+    // where the glow will come from
+    const L = d.light || (p.light ? DEFAULT_LIGHT : null);
+    const lit = p.light !== false && (p.light === true || !!d.light);
+    if (L && lit){
+      const at = p.lightAt || L.at;
+      const gx = Math.round((p.x + at[0]) * TILE);
+      const gy = Math.round((p.y - d.h + at[1]) * TILE);
+      g.strokeStyle = "rgba(255,240,190,0.95)";
+      g.lineWidth = 1;
+      g.beginPath(); g.arc(gx, gy, 4, 0, Math.PI * 2); g.stroke();
+      g.fillStyle = "rgba(255,240,190,0.95)";
+      g.fillRect(gx - 0.5, gy - 0.5, 1, 1);
+    }
+  }
+}
+
+/** Blit only. Cheap enough to run every animation frame. */
+function paint(){
+  const c = $("c");
+  const S = computeScale();
+  displayScale = S;
+  if (c.width !== PXW * S || c.height !== PXH * S){
+    c.width = PXW * S;
+    c.height = PXH * S;
+    c.style.width = (PXW * S / DPR) + "px";
+    c.style.height = (PXH * S / DPR) + "px";
+  }
+  const g = c.getContext("2d");
+  g.imageSmoothingEnabled = false;
+  g.clearRect(0, 0, c.width, c.height);
+  g.drawImage(scene, 0, 0, c.width, c.height);
+  if (state.glow && state.lightMode === "raw") paintRawLights(g, S);
+  return S;
+}
+
+function present(){
+  const S = paint();
+  const n = placements.length;
+  $("readout").innerHTML =
+    `<span class="pill"><b>${ROOM.tx}×${ROOM.ty}</b> tiles</span>` +
+    `<span class="pill"><b>${n}</b> placed</span>` +
+    `<span class="pill"><b>${S / DPR}×</b> zoom</span>` +
+    `<span class="pill good"><b>${PAL.length}</b> colours</span>`;
+
+  const mag = guides.some(g => g.type === "seat") ? "seat"
+            : guides.some(g => g.type === "edge") ? "flush"
+            : "";
+  const base = showRaw ? "raw background (unblended)" : "blended to the shared palette";
+  $("hud").textContent = base + (mag ? "   ·   magnet: " + mag : "");
+  syncSelection();
+}
+
+function setSeg(id, val){
+  const el = $(id);
+  [...el.children].forEach(b => b.classList.toggle("on", b.dataset.v === String(val)));
+}
+
+function syncSelection(){
+  const box = $("selBox");
+  if (selected < 0 || !placements[selected]){ box.hidden = true; picking = false; return; }
+  box.hidden = false;
+  const p = placements[selected], d = byId[p.item];
+  $("selName").textContent = d.name + " · " + d.type + " · " + d.w + "×" + d.h + " tiles";
+  const on = p.light === false ? false : (p.light === true || !!d.light);
+  setSeg("segLight", on ? "1" : "0");
+  const r = p.lightR || (d.light && d.light.r) || DEFAULT_LIGHT.r;
+  $("lightR").value = r;
+  $("lightRV").textContent = Number(r).toFixed(1);
+
+  const grow = $("glowRow");
+  if (grow) grow.hidden = !on;
+  const gh = $("glowHint");
+  if (gh){
+    gh.hidden = !on;
+    if (on){
+      gh.textContent = picking
+        ? "Click the part of the item that should cast the light. Esc cancels."
+        : (p.lightAt ? "Custom origin: " + p.lightAt[0].toFixed(2) + ", " + p.lightAt[1].toFixed(2) + " tiles from its top-left."
+                     : "Using the item's built-in origin.");
+    }
+  }
+
+  const ah = $("artHint");
+  if (ah){
+    ah.textContent = "Art box: " + (d.w * TILE) + "×" + (d.h * TILE) + " px" +
+      (artOverrides[d.id] ? " · using custom art" : "");
+  }
+}
+
+function render(){ drawScene(); present(); persist(); }
+
+/* ============================================================
+   Pointer → tiles
+   ============================================================ */
+function toRoom(e){
+  const c = $("c");
+  const r = c.getBoundingClientRect();
+  return {
+    x: (e.clientX - r.left) / r.width * ROOM.tx,
+    y: (e.clientY - r.top) / r.height * ROOM.ty,
+    inside: e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom
+  };
+}
+
+function startCarry(def, e, from){
+  const p = toRoom(e);
+  const offset = p.x - (from === null ? 0 : placements[from].x);
+  carry = {
+    def,
+    from,
+    grabX: from === null ? def.w / 2 : offset,
+    x: 0, y: 0, tx: 0, ty: 0,
+    moved: false, live: false
+  };
+  if (from !== null){
+    carry.x = carry.tx = placements[from].x;
+    carry.y = carry.ty = placements[from].y;
+    carry.moved = true;
+    carry.live = true;
+    selected = from;
+  }
+  render();
+}
+
+/* Ease the drawn position toward the resolved one, so a magnet reads as a pull
+   rather than a jump. Without this, every snap looks like teleporting. */
+let animating = false;
+function animateCarry(){
+  if (!carry){ animating = false; return; }
+  const dx = carry.tx - carry.x, dy = carry.ty - carry.y;
+  if (Math.abs(dx) < 0.008 && Math.abs(dy) < 0.008){
+    carry.x = carry.tx; carry.y = carry.ty;
+    animating = false;
+    drawScene();
+    paint();
+    return;
+  }
+  carry.x += dx * 0.32;
+  carry.y += dy * 0.32;
+  drawScene();
+  paint();
+  requestAnimationFrame(animateCarry);
+}
+function kickAnim(){
+  if (animating) return;
+  animating = true;
+  requestAnimationFrame(animateCarry);
+}
+
+function updateCarry(e){
+  if (!carry) return;
+  const p = toRoom(e);
+  const rawX = p.x - carry.grabX;
+  const rawY = p.y;
+  const snapped = snapPosition(carry.def, rawX, rawY, e.shiftKey);
+  carry.tx = snapped.x;
+  carry.ty = snapped.y;
+  carry.live = p.inside;
+  guides = p.inside ? snapped.guides : [];
+  if (!carry.moved){
+    carry.x = carry.tx; carry.y = carry.ty;
+    carry.moved = true;
+    render();
+    return;
+  }
+  kickAnim();
+}
+
+function endCarry(){
+  if (!carry) return;
+  if (carry.live){
+    const fx = carry.tx, fy = carry.ty;
+    sfxDrop(carry.def);
+    if (carry.from !== null){
+      placements[carry.from].x = fx;
+      placements[carry.from].y = fy;
+      selected = carry.from;
+    } else {
+      placements.push({ item: carry.def.id, x: fx, y: fy });
+      selected = placements.length - 1;
+    }
+  }
+  carry = null;
+  guides = [];
+  render();
+}
+
+/* ============================================================
+   Palette UI
+   ============================================================ */
+function makeCard(it){
+  const card = document.createElement("div");
+  card.className = "card";
+  const thumb = document.createElement("canvas");
+  thumb.width = it.sprite.width; thumb.height = it.sprite.height;
+  const tg = thumb.getContext("2d");
+  tg.imageSmoothingEnabled = false;
+  tg.drawImage(it.sprite, 0, 0);
+  const scale = Math.max(1, Math.min(2, Math.floor(70 / Math.max(thumb.width, thumb.height))));
+  thumb.style.width = (thumb.width * scale) + "px";
+  thumb.style.height = (thumb.height * scale) + "px";
+  card.appendChild(thumb);
+  const label = document.createElement("span");
+  label.textContent = it.name;
+  card.appendChild(label);
+
+  card.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    startCarry(it, e, null);
+    card.setPointerCapture(e.pointerId);
+  });
+  card.addEventListener("pointermove", (e) => { if (carry) updateCarry(e); });
+  card.addEventListener("pointerup", (e) => { updateCarry(e); endCarry(); });
+  return card;
+}
+
+/** Grouped by category, filtered by the search box. */
+function buildPalette(){
+  const box = $("palette");
+  if (!box) return;
+  box.innerHTML = "";
+
+  const q = (($("palFilter") && $("palFilter").value) || "").trim().toLowerCase();
+  const groups = new Map();
+  for (const it of ITEMS){
+    if (q){
+      const hay = (it.name + " " + it.category + " " + it.type + " " + (it.tags || []).join(" ")).toLowerCase();
+      if (hay.indexOf(q) === -1) continue;
+    }
+    if (!groups.has(it.category)) groups.set(it.category, []);
+    groups.get(it.category).push(it);
+  }
+
+  if (!groups.size){
+    box.innerHTML = '<p class="note" style="margin:0">Nothing matches that filter.</p>';
+    return;
+  }
+
+  // stable order: the order categories first appear in the type registry
+  const order = Object.keys(TYPES).map(k => TYPES[k].category);
+  const cats = [...groups.keys()].sort((a, b) => {
+    const ia = order.indexOf(a), ib = order.indexOf(b);
+    return ((ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib)) || a.localeCompare(b);
+  });
+
+  for (const cat of cats){
+    const sec = document.createElement("div");
+    sec.className = "palsection";
+    const h = document.createElement("h3");
+    h.className = "palsection-h";
+    h.textContent = cat + " · " + groups.get(cat).length;
+    sec.appendChild(h);
+    const grid = document.createElement("div");
+    grid.className = "palette";
+    for (const it of groups.get(cat)) grid.appendChild(makeCard(it));
+    sec.appendChild(grid);
+    box.appendChild(sec);
+  }
+}
+
+/* ============================================================
+   Canvas interaction
+   ============================================================ */
+function wireCanvas(){
+  const c = $("c");
+
+  c.addEventListener("pointerdown", (e) => {
+    const p = toRoom(e);
+    if (picking){
+      if (selected >= 0 && placements[selected]){
+        const pl = placements[selected], d = byId[pl.item];
+        const ax = Math.max(0, Math.min(d.w, p.x - pl.x));
+        const ay = Math.max(0, Math.min(d.h, p.y - (pl.y - d.h)));
+        pl.lightAt = [Math.round(ax * 8) / 8, Math.round(ay * 8) / 8];
+        pl.light = true;
+        picking = false;
+        setSeg("segLight", "1");
+        persist();
+        render();
+        flashNote("\u2713 Glow point set");
+      }
+      return;
+    }
+    // topmost item under the cursor
+    const order = placements.map((pl, i) => ({ pl, i, d: byId[pl.item] }))
+      .filter(o => {
+        const d = o.d;
+        return p.x >= o.pl.x && p.x <= o.pl.x + d.w &&
+               p.y >= o.pl.y - d.h && p.y <= o.pl.y;
+      })
+      .sort((a, b) => (b.d.layer - a.d.layer) || (b.pl.y - a.pl.y));
+
+    if (order.length){
+      const pick = order[0];
+      startCarry(pick.d, e, pick.i);
+    } else {
+      selected = -1;
+      render();
+    }
+    try { c.setPointerCapture(e.pointerId); } catch (err){}
+  });
+
+  c.addEventListener("pointermove", (e) => {
+    if (carry){ updateCarry(e); return; }
+    const p = toRoom(e);
+    const hit = placements.some(pl => {
+      const d = byId[pl.item];
+      return p.x >= pl.x && p.x <= pl.x + d.w && p.y >= pl.y - d.h && p.y <= pl.y;
+    });
+    c.style.cursor = hit ? "grab" : "crosshair";
+  });
+
+  c.addEventListener("pointerup", () => endCarry());
+  c.addEventListener("pointercancel", () => { carry = null; guides = []; render(); });
+}
+
+/* ============================================================
+   Keys
+   ============================================================ */
+window.addEventListener("keydown", (e) => {
+  const t = e.target;
+  if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT")) return;
+  if (e.key === "Escape" && $("blenderModal").style.display === "flex"){ closeBlender(); return; }
+  if (e.key === "Escape" && picking){ picking = false; syncSelection(); render(); return; }
+  if (e.key === "Escape" && carry){ carry = null; guides = []; render(); return; }
+  if (selected < 0 || !placements[selected]) return;
+  const p = placements[selected];
+  if (e.key === "Delete" || e.key === "Backspace"){
+    e.preventDefault();
+    placements.splice(selected, 1);
+    selected = -1;
+    render();
+  } else if (e.key === "ArrowLeft" || e.key === "ArrowRight"){
+    e.preventDefault();
+    const d = byId[p.item];
+    const step = e.shiftKey ? 1 / TILE : 1;          // shift = one pixel
+    const dir = e.key === "ArrowLeft" ? -1 : 1;
+    p.x = Math.max(0, Math.min(ROOM.tx - d.w, p.x + dir * step));
+    render();
+  }
+});
+
+/* ============================================================
+   Room JSON
+   ============================================================ */
+function roomJSON(){
+  const wall = { y: 0, h: ROOM.floorLine * TILE };
+  const floor = { y: ROOM.floorLine * TILE, h: (ROOM.ty - ROOM.floorLine) * TILE };
+  return {
+    id: "room.great-hall",
+    tile: TILE,
+    size: [ROOM.tx, ROOM.ty],
+    background: { src: "rooms/great-hall.png", raw: "art/great-hall-source.png" },
+    palette: PAL,
+    snap: {
+      wall,
+      floor,
+      baseline: ROOM.floorLine * TILE,
+      solid: [
+        { x: 0, y: floor.y, w: PXW, h: floor.h }
+      ]
+    },
+    placements: placements.map(p => {
+      const o = {
+        item: p.item,
+        x: Math.round(p.x * 1000) / 1000,
+        y: Math.round(p.y * 1000) / 1000,
+        layer: byId[p.item].layer
+      };
+      if (p.light !== undefined) o.light = p.light;
+      if (p.lightR !== undefined) o.lightR = Math.round(p.lightR * 100) / 100;
+      if (p.lightAt) o.lightAt = [Math.round(p.lightAt[0] * 1000) / 1000, Math.round(p.lightAt[1] * 1000) / 1000];
+      return o;
+    })
+  };
+}
+
+/* ============================================================
+   Music
+   ============================================================ */
+const TRACKS = [
+  { id: "none", name: "Silence", src: null, len: "" },
+  { id: "warm", name: "Warm Windows", src: "music/warm-windows.mp3", len: "3:03" },
+  { id: "dust", name: "Dust and Daylight", src: "music/dust-and-daylight.mp3", len: "2:54" },
+  { id: "wing", name: "The Quiet Wing", src: "music/the-quiet-wing.mp3", len: "2:29" }
+];
+
+const music = { track: "none", loop: true, vol: 0.35, playing: false };
+const player = new Audio();
+player.preload = "none";
+
+function trackById(id){ return TRACKS.find(t => t.id === id) || TRACKS[0]; }
+
+function syncMusic(){
+  player.loop = music.loop;
+  player.volume = music.vol;
+  const t = trackById(music.track);
+  const list = $("trackList");
+  if (list) [...list.children].forEach(b => b.classList.toggle("on", b.dataset.id === music.track));
+  const pp = $("playPause");
+  if (pp){
+    pp.textContent = music.playing ? "\u275A\u275A Pause" : "\u25B6 Play";
+    pp.disabled = !t.src;
+  }
+  setSeg("segLoop", music.loop ? "1" : "0");
+  const v = Math.round(music.vol * 100);
+  if ($("vol")) $("vol").value = v;
+  if ($("volV")) $("volV").textContent = v;
+}
+
+function loadTrack(id){
+  const t = trackById(id);
+  music.track = id;
+  if (!t.src){
+    player.pause();
+    music.playing = false;
+  } else if (player.dataset.track !== id){
+    player.src = t.src;
+    player.dataset.track = id;
+  }
+}
+
+function playMusic(){
+  const t = trackById(music.track);
+  if (!t.src) return;
+  player.play()
+    .then(() => { music.playing = true; syncMusic(); })
+    .catch(() => {
+      music.playing = false;
+      syncMusic();
+      flashNote("The browser blocked audio \u2014 press Play again.", true);
+    });
+}
+
+function selectTrack(id){
+  loadTrack(id);
+  syncMusic();
+  persist();
+}
+
+function togglePlay(){
+  if (!trackById(music.track).src){ flashNote("Pick a track first.", true); return; }
+  if (music.playing){ player.pause(); music.playing = false; syncMusic(); }
+  else playMusic();
+}
+
+player.addEventListener("ended", () => { music.playing = false; syncMusic(); });
+player.addEventListener("error", () => {
+  if (trackById(music.track).src) flashNote("Couldn't load that track.", true);
+});
+
+function buildTracks(){
+  const box = $("trackList");
+  box.innerHTML = "";
+  for (const t of TRACKS){
+    const b = document.createElement("button");
+    b.className = "track";
+    b.dataset.id = t.id;
+    const label = document.createElement("span");
+    label.textContent = t.name;
+    const len = document.createElement("em");
+    len.textContent = t.len || "";
+    b.appendChild(label);
+    b.appendChild(len);
+    b.addEventListener("click", () => {
+      selectTrack(t.id);
+      if (t.src) playMusic();     // still inside the click gesture, so autoplay is allowed
+    });
+    box.appendChild(b);
+  }
+}
+
+$("vol").addEventListener("input", e => {
+  music.vol = Number(e.target.value) / 100;
+  player.volume = music.vol;
+  $("volV").textContent = e.target.value;
+  persist();
+});
+$("sfxVol").addEventListener("input", e => {
+  sfx.vol = Number(e.target.value) / 100;
+  $("sfxVolV").textContent = e.target.value;
+});
+$("sfxVol").addEventListener("change", () => {
+  playSfx("switch", { rate: 1, gain: 1 });   // preview on release
+  persist();
+});
+$("segLoop").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  music.loop = b.dataset.v === "1";
+  player.loop = music.loop;
+  setSeg("segLoop", b.dataset.v);
+  persist();
+});
+$("playPause").addEventListener("click", togglePlay);
+
+$("pickGlow").addEventListener("click", () => {
+  if (selected < 0 || !placements[selected]) return;
+  picking = true;
+  syncSelection();
+  render();
+});
+$("resetGlow").addEventListener("click", () => {
+  if (selected < 0 || !placements[selected]) return;
+  delete placements[selected].lightAt;
+  persist();
+  render();
+  flashNote("Glow point back to the item default");
+});
+
+let blenderItem = null;
+
+function openBlender(){
+  if (selected < 0 || !placements[selected]) return;
+  const it = byId[placements[selected].item];
+  $("blenderTitle").textContent = "Blend new art \u2014 " + it.name;
+  $("blenderSub").textContent = (it.w * TILE) + "\u00d7" + (it.h * TILE) + " px";
+  if (blenderItem !== it.id){
+    $("blenderFrame").src = "../sprite-blender/?item=" + encodeURIComponent(it.id) + "&embed=1";
+    blenderItem = it.id;
+  }
+  $("blenderModal").style.display = "flex";
+}
+
+function closeBlender(){
+  // src is left alone on purpose, so reopening keeps your blend in progress
+  $("blenderModal").style.display = "none";
+}
+
+$("pickArt").addEventListener("click", openBlender);
+$("blenderClose").addEventListener("click", closeBlender);
+$("importArt").addEventListener("click", () => {
+  if (selected < 0 || !placements[selected]) return;
+  $("artFile").click();
+});
+
+// the embedded blender tells us when it has written new art
+window.addEventListener("message", (e) => {
+  if (e.data && e.data.type === "art-sent") flashNote("\u2713 Art applied \u2014 close the blender to see it");
+});
+$("resetArt").addEventListener("click", () => {
+  if (selected < 0 || !placements[selected]) return;
+  const it = byId[placements[selected].item];
+  if (!artOverrides[it.id]){ flashNote("That's already the original art."); return; }
+  delete artOverrides[it.id];
+  saveArt();
+  buildSprite(it);
+  buildPalette();
+  render();
+  flashNote("Original art restored");
+});
+$("artFile").addEventListener("change", (e) => {
+  const f = e.target.files && e.target.files[0];
+  e.target.value = "";
+  if (!f || selected < 0 || !placements[selected]) return;
+  const it = byId[placements[selected].item];
+  const reader = new FileReader();
+  reader.onload = () => {
+    artOverrides[it.id] = reader.result;
+    saveArt();
+    buildSprite(it);
+    buildPalette();
+    flashNote("Art replaced \u2014 box is " + (it.w * TILE) + "×" + (it.h * TILE) + " px");
+  };
+  reader.readAsDataURL(f);
+});
+
+/* The sprite blender writes to the same key from its own tab; this fires in
+   the other tab and we rebuild the sprite without a reload. */
+window.addEventListener("storage", (e) => {
+  if (e.key !== ART_KEY) return;
+  try {
+    const next = e.newValue ? JSON.parse(e.newValue) : {};
+    for (const k of Object.keys(artOverrides)) delete artOverrides[k];
+    Object.assign(artOverrides, next);
+    for (const it of ITEMS) buildSprite(it);
+    buildPalette();
+    render();
+    flashNote("Art updated from the sprite blender");
+  } catch (err){ /* ignore malformed writes */ }
+});
+
+/* ============================================================
+   Sound effects
+   A small pool per sound so overlapping plays don't cut each other off.
+   Pitch is jittered per play — one sample repeated identically gets tiring fast.
+   ============================================================ */
+/* Measured levels (48 kHz, stereo):
+     switch8.ogg                 peak -2.4 dBFS   RMS -31.0 dBFS
+     footstep-concrete-001.ogg   peak -1.1 dBFS   RMS -22.4 dBFS
+   The footstep is 8.6 dB louder in RMS, so its gain is pulled well down here
+   rather than baked into a re-encode. Placement happens far more often than
+   switching, so it is parked slightly below the switch on purpose. */
+const SFX_FILES = {
+  switch: "sfx/switch8.ogg",
+  drop: "sfx/footstep-concrete-001.ogg"
+};
+const sfx = { on: true, vol: 0.6 };
+const sfxPools = {};
+
+function buildSfxPool(name, n){
+  const url = SFX_FILES[name];
+  if (!url) return;
+  const pool = [];
+  for (let i = 0; i < n; i++){
+    const a = new Audio(url);
+    a.preload = "auto";
+    a.volume = 0;
+    pool.push(a);
+  }
+  sfxPools[name] = { pool, i: 0 };
+}
+
+function playSfx(name, opts){
+  if (!sfx.on || sfx.vol <= 0) return;
+  const p = sfxPools[name];
+  if (!p) return;
+  const o = opts || {};
+  const a = p.pool[p.i++ % p.pool.length];
+  try {
+    a.pause();
+    a.currentTime = 0;
+    a.playbackRate = o.rate || 1;
+    a.preservesPitch = false;                       // let it shift pitch rather than stretch
+    if ("mozPreservesPitch" in a) a.mozPreservesPitch = false;
+    if ("webkitPreservesPitch" in a) a.webkitPreservesPitch = false;
+    a.volume = Math.max(0, Math.min(1, sfx.vol * (o.gain == null ? 1 : o.gain)));
+    const pr = a.play();
+    if (pr && pr.catch) pr.catch(() => {});
+  } catch (e){ /* audio is never worth throwing over */ }
+}
+
+const jitter = (lo, hi) => lo + Math.random() * (hi - lo);
+
+function sfxSwitch(down){
+  playSfx("switch", { rate: down ? jitter(0.86, 0.94) : jitter(0.96, 1.05), gain: 0.9 });
+}
+
+/* Type tells us what it's made of, so one sample can read as several materials. */
+const DROP_RATE = { wood: 1.00, cloth: 1.22, paper: 1.30, foliage: 1.14, glass: 1.34 };
+
+function sfxDrop(def){
+  const kind = (def && def.drop) || "wood";
+  const r = DROP_RATE[kind] || 1;
+  playSfx("drop", {
+    rate: jitter(0.94, 1.04) * r,
+    gain: kind === "cloth" ? 0.24 : (kind === "glass" ? 0.26 : 0.30)
+  });
+}
+
+/* ============================================================
+   Save / load
+   ============================================================ */
+const SAVE_KEY = "room-editor.v1";
+const SAVE_NOTE = "Auto-saves in this browser as you work. Download a file to keep it, move it, or back it up.";
+let bgSource = { kind: "generated" };
+let saveTimer = 0, noteTimer = 0;
+
+function snapshot(){
+  return {
+    v: 1,
+    savedAt: new Date().toISOString(),
+    settings: {
+      snapMode: state.snapMode, bgDither: state.bgDither, glow: state.glow,
+      dusk: state.dusk, lightMode: state.lightMode,
+      showRaw, showSnap, showGrid,
+      music: { track: music.track, loop: music.loop, vol: music.vol },
+      sfx: { vol: sfx.vol }
+    },
+    background: bgSource,
+    room: roomJSON()
+  };
+}
+
+let storageOK = false;
+
+/** Can this page actually write to browser storage? A file:// origin usually cannot. */
+function probeStorage(){
+  try {
+    localStorage.setItem("__re_probe", "1");
+    localStorage.removeItem("__re_probe");
+    storageOK = true;
+  } catch (e){ storageOK = false; }
+  const w = $("storageWarn");
+  if (w) w.hidden = storageOK;
+  return storageOK;
+}
+
+function persist(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    if (!storageOK){
+      const w = $("storageWarn");
+      if (w) w.hidden = false;
+      return;
+    }
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify(snapshot()));
+      flashNote("\u2713 Saved in this browser");
+    } catch (e){
+      storageOK = false;
+      const w = $("storageWarn");
+      if (w) w.hidden = false;
+    }
+  }, 320);
+}
+
+function flashNote(text, isError){
+  const n = $("saveNote");
+  if (!n) return;
+  n.textContent = text;
+  n.style.color = isError ? "#e2a192" : "#a9c99a";
+  clearTimeout(noteTimer);
+  noteTimer = setTimeout(() => { n.textContent = SAVE_NOTE; n.style.color = ""; }, 1600);
+}
+
+function syncSegs(){
+  setSeg("segSnapMode", state.snapMode === "grid" ? "grid" : "free");
+  setSeg("segSnap", showSnap ? "1" : "0");
+  setSeg("segGrid", showGrid ? "1" : "0");
+  setSeg("segBg", showRaw ? "raw" : "pixel");
+  setSeg("segGlow", state.glow ? "1" : "0");
+  setSeg("segDusk", state.dusk ? "1" : "0");
+  setSeg("segLightMode", state.lightMode);
+  setSeg("segDither", state.bgDither ? "1" : "0");
+}
+
+function applySnapshot(s){
+  if (!s || typeof s !== "object") return false;
+  const st = s.settings || {};
+  if (st.snapMode) state.snapMode = st.snapMode;
+  if (typeof st.bgDither === "boolean") state.bgDither = st.bgDither;
+  if (typeof st.glow === "boolean") state.glow = st.glow;
+  if (typeof st.dusk === "boolean") state.dusk = st.dusk;
+  if (st.lightMode) state.lightMode = st.lightMode;
+  if (st.music){
+    if (st.music.track) music.track = st.music.track;
+    if (typeof st.music.loop === "boolean") music.loop = st.music.loop;
+    if (typeof st.music.vol === "number") music.vol = Math.max(0, Math.min(1, st.music.vol));
+    loadTrack(music.track);
+    syncMusic();
+  }
+  if (st.sfx && typeof st.sfx.vol === "number"){
+    sfx.vol = Math.max(0, Math.min(1, st.sfx.vol));
+    $("sfxVol").value = Math.round(sfx.vol * 100);
+    $("sfxVolV").textContent = Math.round(sfx.vol * 100);
+  }
+  if (typeof st.showRaw === "boolean") showRaw = st.showRaw;
+  if (typeof st.showSnap === "boolean") showSnap = st.showSnap;
+  if (typeof st.showGrid === "boolean") showGrid = st.showGrid;
+
+  const list = (s.room && s.room.placements) || s.placements || [];
+  placements = list
+    .filter(p => p && byId[p.item])
+    .map(p => {
+      const nx = Number(p.x), ny = Number(p.y);
+      const o = {
+        item: p.item,
+        x: Number.isFinite(nx) ? nx : 0,
+        y: Number.isFinite(ny) ? ny : ROOM.floorLine   // 0 is a legal y for wall pieces
+      };
+      if (p.light !== undefined) o.light = p.light;
+      if (p.lightR !== undefined) o.lightR = Number(p.lightR);
+      if (Array.isArray(p.lightAt) && p.lightAt.length === 2 &&
+          isFinite(p.lightAt[0]) && isFinite(p.lightAt[1])){
+        o.lightAt = [Number(p.lightAt[0]), Number(p.lightAt[1])];
+      }
+      return o;
+    });
+  selected = -1;
+
+  if (s.background && s.background.kind === "image" && s.background.data){
+    bgSource = s.background;
+    const img = new Image();
+    img.onload = () => {
+      rawBg = img;
+      bgPixel = condition(img, PXW, PXH, state.bgDither);
+      render();
+    };
+    img.src = s.background.data;
+  } else {
+    bgSource = { kind: "generated" };
+    rawBg = makeBackground();
+    bgPixel = condition(rawBg, PXW, PXH, state.bgDither);
+  }
+
+  syncSegs();
+  return true;
+}
+
+function restore(){
+  if (!storageOK) return false;
+  let raw = null;
+  try { raw = localStorage.getItem(SAVE_KEY); } catch (e){ return false; }
+  if (!raw) return false;
+  try { return applySnapshot(JSON.parse(raw)); } catch (e){ return false; }
+}
+
+function downloadBlob(blob, name){
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+function shrinkToDataURL(img, max){
+  const k = Math.min(1, max / Math.max(img.width, img.height));
+  const c = document.createElement("canvas");
+  c.width = Math.max(1, Math.round(img.width * k));
+  c.height = Math.max(1, Math.round(img.height * k));
+  const g = c.getContext("2d");
+  g.imageSmoothingQuality = "high";
+  g.drawImage(img, 0, 0, c.width, c.height);
+  return c.toDataURL("image/png");
+}
+
+function exportPng(){
+  drawScene();
+  const S = 3;
+  const c = document.createElement("canvas");
+  c.width = PXW * S; c.height = PXH * S;
+  const g = c.getContext("2d");
+  g.imageSmoothingEnabled = false;
+  g.drawImage(scene, 0, 0, c.width, c.height);
+  if (state.glow && state.lightMode === "raw") paintRawLights(g, S);
+  c.toBlob(b => downloadBlob(b, "room.png"), "image/png");
+  flashNote("\u2713 Exported room.png");
+}
+
+function toast(msg){
+  $("hud").textContent = msg;
+  setTimeout(present, 1600);
+}
+
+/* ============================================================
+   Wiring
+   ============================================================ */
+$("segSnapMode").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  [...$("segSnapMode").children].forEach(c => c.classList.toggle("on", c === b));
+  state.snapMode = b.dataset.v;
+  render();
+});
+$("segSnap").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  [...$("segSnap").children].forEach(c => c.classList.toggle("on", c === b));
+  showSnap = b.dataset.v === "1";
+  render();
+});
+$("segGrid").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  [...$("segGrid").children].forEach(c => c.classList.toggle("on", c === b));
+  showGrid = b.dataset.v === "1";
+  render();
+});
+$("segBg").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  [...$("segBg").children].forEach(c => c.classList.toggle("on", c === b));
+  showRaw = b.dataset.v === "raw";
+  render();
+});
+$("segGlow").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  setSeg("segGlow", b.dataset.v);
+  state.glow = b.dataset.v === "1";
+  sfxSwitch(state.glow);
+  render();
+});
+$("segDusk").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  setSeg("segDusk", b.dataset.v);
+  state.dusk = b.dataset.v === "1";
+  sfxSwitch(state.dusk);
+  render();
+});
+$("segLightMode").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  setSeg("segLightMode", b.dataset.v);
+  state.lightMode = b.dataset.v;
+  render();
+});
+$("segDither").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  setSeg("segDither", b.dataset.v);
+  state.bgDither = b.dataset.v === "1";
+  bgPixel = condition(rawBg, PXW, PXH, state.bgDither);
+  render();
+});
+$("segLight").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (selected < 0 || !placements[selected]) return;
+  placements[selected].light = b.dataset.v === "1";
+  setSeg("segLight", b.dataset.v);
+  sfxSwitch(b.dataset.v === "1");
+  render();
+});
+$("lightR").addEventListener("input", e => {
+  if (selected < 0 || !placements[selected]) return;
+  placements[selected].lightR = Number(e.target.value);
+  placements[selected].light = true;
+  setSeg("segLight", "1");
+  $("lightRV").textContent = Number(e.target.value).toFixed(1);
+  render();
+});
+
+$("pickBg").addEventListener("click", () => $("bgFile").click());
+$("bgFile").addEventListener("change", (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const img = new Image();
+  img.onload = () => {
+    rawBg = img;
+    bgSource = { kind: "image", data: shrinkToDataURL(img, 1280) };
+    bgPixel = condition(img, PXW, PXH, state.bgDither);
+    render();
+    toast("background blended into the palette");
+  };
+  img.src = URL.createObjectURL(f);
+});
+
+$("resetRoom").addEventListener("click", () => {
+  bgSource = { kind: "generated" };
+  rawBg = makeBackground();
+  bgPixel = condition(rawBg, PXW, PXH, state.bgDither);
+  defaultRoom();
+  render();
+});
+
+$("copyJson").addEventListener("click", async () => {
+  const text = JSON.stringify(roomJSON(), null, 2);
+  try {
+    await navigator.clipboard.writeText(text);
+    toast("room JSON copied");
+  } catch (err){
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.cssText = "position:fixed;left:-9999px";
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand("copy"); toast("room JSON copied"); }
+    catch (e2){ toast("copy blocked"); }
+    ta.remove();
+  }
+});
+
+window.addEventListener("resize", () => render());
+
+$("saveRoom").addEventListener("click", () => {
+  const blob = new Blob([JSON.stringify(snapshot(), null, 2)], { type: "application/json" });
+  downloadBlob(blob, "room-great-hall.json");
+  flashNote("\u2713 Downloaded room-great-hall.json");
+});
+$("loadRoom").addEventListener("click", () => $("roomFile").click());
+$("roomFile").addEventListener("change", (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      if (applySnapshot(JSON.parse(reader.result))){
+        render();
+        flashNote("\u2713 Room loaded");
+      } else flashNote("That file isn't a room file.", true);
+    } catch (err){ flashNote("Couldn't read that file.", true); }
+  };
+  reader.readAsText(f);
+  e.target.value = "";
+});
+$("exportPng").addEventListener("click", exportPng);
+
+/* ---------- boot ---------- */
+buildPalette();
+if ($("palFilter")) $("palFilter").addEventListener("input", buildPalette);
+buildTracks();
+buildSfxPool("switch", 4);
+buildSfxPool("drop", 5);
+wireCanvas();
+probeStorage();
+if (!restore()) defaultRoom();
+syncMusic();
+booted = true;
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,1900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sprite Blender</title>
+<style>
+:root{
+  --bg:#141110; --panel:#1d1917; --panel2:#262020; --line:#332c28;
+  --ink:#efe6da; --dim:#a2938a; --accent:#e0a24a; --accent-dim:#7d5a2c;
+  --good:#7fa86b; --warn:#c9a34e; --bad:#bf6a5a;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font:14px/1.45 ui-sans-serif,system-ui,"Segoe UI",Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+.app{display:grid;grid-template-columns:356px minmax(0,1fr);min-height:100vh}
+
+/* ---------- sidebar ---------- */
+aside{
+  border-right:1px solid var(--line);padding:16px 16px 40px;
+  background:linear-gradient(180deg,#191514,#141110 120px);
+  overflow-y:auto;max-height:100vh;
+}
+.brand{display:flex;align-items:baseline;gap:9px;margin:0 0 2px}
+.brand h1{font-size:16px;letter-spacing:.06em;margin:0;font-weight:650}
+.brand span{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);opacity:.8}
+.tagline{margin:0 0 16px;color:var(--dim);font-size:12px}
+
+section{margin-bottom:18px}
+h2{
+  font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--dim);
+  margin:0 0 8px;font-weight:600;
+}
+
+/* drop zone */
+.drop{
+  border:1px dashed #3d342e;border-radius:10px;padding:14px;text-align:center;
+  cursor:pointer;transition:.15s;background:#181413;position:relative;
+}
+.drop:hover,.drop.over{border-color:var(--accent);background:#201a15}
+.drop p{margin:0;color:var(--dim);font-size:12px;line-height:1.5}
+.drop strong{color:var(--ink);font-weight:600;display:block;margin-bottom:2px;font-size:13px}
+.drop img{max-width:100%;max-height:130px;border-radius:6px;display:block;margin:0 auto}
+.drop .hint{font-size:10px;color:#7d6f66;margin-top:6px}
+
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:8px 0}
+.row label{color:var(--dim);font-size:12px;flex:0 0 auto}
+.row .val{color:var(--ink);font-size:11px;font-variant-numeric:tabular-nums;min-width:38px;text-align:right}
+
+.seg{display:flex;background:var(--panel2);border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.seg button{
+  appearance:none;border:0;background:transparent;color:var(--dim);
+  font:inherit;font-size:11.5px;padding:5px 8px;cursor:pointer;transition:.12s;
+}
+.seg button:hover{color:var(--ink)}
+.seg button.on{background:var(--accent-dim);color:#fff}
+
+input[type=range]{appearance:none;width:100%;height:20px;background:transparent;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:3px;background:#3a322c;border-radius:2px}
+input[type=range]::-webkit-slider-thumb{
+  appearance:none;width:13px;height:13px;border-radius:50%;background:var(--accent);
+  margin-top:-5px;border:0;
+}
+input[type=range]::-moz-range-track{height:3px;background:#3a322c;border-radius:2px}
+input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:var(--accent);border:0}
+
+select,input[type=text]{
+  background:var(--panel2);color:var(--ink);border:1px solid var(--line);
+  border-radius:6px;padding:5px 7px;font:inherit;font-size:12px;
+}
+input[type=color]{
+  width:26px;height:22px;padding:0;border:1px solid var(--line);
+  border-radius:5px;background:none;cursor:pointer;
+}
+
+/* swatches */
+.sws{display:flex;flex-wrap:wrap;gap:5px;margin:9px 0 4px}
+.swwrap{position:relative;line-height:0}
+.sw{
+  width:21px;height:21px;border-radius:4px;border:1px solid rgba(0,0,0,.55);
+  padding:0;cursor:pointer;display:block;
+}
+.swx{
+  position:absolute;top:-5px;right:-5px;width:13px;height:13px;border-radius:50%;
+  background:#2a2320;color:#d8c8bb;font-size:10px;line-height:13px;text-align:center;
+  cursor:pointer;opacity:0;transition:.12s;border:1px solid #443a33;
+}
+.swwrap:hover .swx{opacity:1}
+.swx:hover{background:var(--bad);color:#fff}
+
+.btn{
+  appearance:none;border:1px solid var(--line);background:var(--panel2);color:var(--ink);
+  font:inherit;font-size:12px;padding:6px 10px;border-radius:7px;cursor:pointer;transition:.13s;
+  width:100%;text-align:center;
+}
+.btn:hover{border-color:#4d4239;background:#2d2622}
+.btn.primary{border-color:var(--accent-dim);background:#2a2013;color:#f0d9b0}
+.btn.primary:hover{background:#352718}
+.btnrow{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.btnrow .full{grid-column:1/-1}
+.btn.sm{width:auto;padding:4px 9px;font-size:11px}
+.btn:disabled{opacity:.38;cursor:default}
+
+.tools{display:flex;align-items:center;gap:7px;margin-top:10px;flex-wrap:wrap}
+.tools .seg{flex:0 0 auto}
+.paintchip{
+  width:21px;height:21px;border-radius:5px;flex:0 0 auto;
+  border:1px solid rgba(0,0,0,.6);box-shadow:0 0 0 1px #4a3f37 inset;
+}
+.tools .spacer{flex:1}
+.sw{position:relative}
+.sw.sel{outline:2px solid var(--accent);outline-offset:1px}
+
+.note{font-size:11px;color:#7d6f66;line-height:1.5;margin:10px 0 0}
+.hint{font-size:10.5px;line-height:1.4;color:#8a7a6d;margin:-3px 0 10px;padding-left:2px}
+.hint.live{color:#c9a34e}
+.hint.warn{color:#e2a192}
+.guide{
+  font-size:11.5px;line-height:1.45;color:#e0c193;background:#241b13;
+  border:1px solid #46351f;border-radius:8px;padding:8px 10px;margin:0 0 14px;
+}
+.guide b{color:#f0d9b0}
+input[type=range]:disabled{opacity:.35;cursor:default}
+.note b{color:var(--dim);font-weight:600}
+
+/* ---------- main ---------- */
+main{padding:18px 20px 40px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.vh{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.vh h2{margin:0}
+.readout{
+  display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:11.5px;color:var(--dim);
+}
+.pill{
+  border:1px solid var(--line);border-radius:20px;padding:2px 9px;background:var(--panel);
+  font-variant-numeric:tabular-nums;
+}
+.pill b{color:var(--ink);font-weight:600}
+.pill.good{border-color:#3d5233;color:#a9c99a}
+.pill.warn{border-color:#5a4a24;color:#dfc07a}
+.pill.bad{border-color:#5c332c;color:#e2a192}
+
+.views{display:grid;grid-template-columns:minmax(0,1fr) minmax(230px,.58fr);gap:14px;align-items:start}
+.stack{display:flex;flex-direction:column;gap:14px;min-width:0}
+figure{
+  margin:0;background:var(--panel);border:1px solid var(--line);border-radius:11px;
+  padding:11px;min-width:0;
+}
+figcaption{
+  font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--dim);
+  margin-bottom:8px;display:flex;justify-content:space-between;gap:8px;
+}
+figcaption em{font-style:normal;color:#6f625a;letter-spacing:0;text-transform:none;font-size:10.5px}
+.canvasbox{
+  display:flex;align-items:center;justify-content:center;min-height:64px;
+  background:
+    repeating-conic-gradient(#241f1d 0% 25%, #1b1716 0% 50%) 50% / 16px 16px;
+  border-radius:7px;padding:12px;overflow:auto;max-height:62vh;
+}
+canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block}
+.empty{color:#6b5f57;font-size:12px;text-align:center;padding:6px 0}
+
+@media (max-width:900px){
+  .app{grid-template-columns:1fr}
+  aside{border-right:0;border-bottom:1px solid var(--line);max-height:none}
+  .views{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside>
+    <div class="brand"><h1>Sprite Blender</h1><span>v1</span></div>
+    <p class="tagline">Big art in. Pixel art out — on one palette, one light, one outline.</p>
+
+    <section>
+      <p class="guide" id="guide">Drop an image to start.</p>
+
+      <div class="drop" id="drop">
+        <div id="dropInner">
+          <p><strong>Drop an image</strong>PNG with transparency works best</p>
+          <div class="hint">click to pick · Ctrl+V to paste · <span id="loadSample" style="color:var(--accent);text-decoration:underline">or try a sample</span></div>
+        </div>
+      </div>
+      <input type="file" id="file" accept="image/*" hidden>
+    </section>
+
+    <section>
+      <h2>Target</h2>
+      <div class="row">
+        <label>Height</label>
+        <div class="seg" id="segH">
+          <button data-v="16">16</button>
+          <button data-v="24">24</button>
+          <button data-v="32">32</button>
+          <button data-v="48">48</button>
+          <button data-v="64" class="on">64</button>
+        </div>
+      </div>
+      <div class="row">
+        <label>Downscale</label>
+        <div class="seg" id="segMode">
+          <button data-v="area" class="on">Area</button>
+          <button data-v="nearest">Nearest</button>
+        </div>
+      </div>
+      <p class="note">Area smooths (use for photos, AI art, gradients). Nearest samples (use when the source is already pixel art).</p>
+    </section>
+
+    <section>
+      <h2>Palette <span id="palCount" style="color:#6f625a;letter-spacing:0"></span></h2>
+      <select id="preset" style="width:100%"></select>
+      <div class="sws" id="sws"></div>
+      <div class="btnrow" style="margin-top:8px">
+        <button class="btn" id="addSw">+ Colour</button>
+        <button class="btn" id="extract">Extract from image</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Shape</h2>
+      <div class="row">
+        <label>Contrast</label>
+        <input type="range" id="contrast" min="50" max="220" value="100" style="flex:1">
+        <span class="val" id="contrastV">100%</span>
+      </div>
+      <div class="row">
+        <label>Alpha cut</label>
+        <input type="range" id="alpha" min="0" max="255" value="128" style="flex:1">
+        <span class="val" id="alphaV">128</span>
+      </div>
+      <div class="hint" id="hintAlpha"></div>
+      <div class="row">
+        <label>Dither</label>
+        <div class="seg" id="segDither">
+          <button data-v="0" class="on">Off</button>
+          <button data-v="1">4×4</button>
+          <button data-v="2">8×8</button>
+        </div>
+      </div>
+      <div class="row">
+        <label>Amount</label>
+        <input type="range" id="ditherAmt" min="0" max="100" value="28" style="flex:1">
+        <span class="val" id="ditherAmtV">28</span>
+      </div>
+      <div class="hint" id="hintDither"></div>
+      <div class="row">
+        <label>Despeckle</label>
+        <input type="range" id="despeckle" min="0" max="8" value="2" style="flex:1">
+        <span class="val" id="despeckleV">2</span>
+      </div>
+      <div class="hint" id="hintDespeckle"></div>
+      <p class="note"><b>Despeckle</b> drops stray clusters smaller than this many pixels. Thin details can't survive a big downscale — they shatter into orphans, and this sweeps them up before the outline wraps each one in a dark block.</p>
+    </section>
+
+    <section>
+      <h2>Background</h2>
+      <div class="btnrow">
+        <button class="btn primary full" id="rmBg">Remove background</button>
+      </div>
+      <div class="row">
+        <label>Tolerance</label>
+        <input type="range" id="bgTol" min="0" max="100" value="14" style="flex:1">
+        <span class="val" id="bgTolV">14</span>
+      </div>
+      <div class="btnrow">
+        <button class="btn" id="trimEdge">Trim edge 1px</button>
+        <button class="btn" id="resetBg">Reset</button>
+      </div>
+      <p class="hint" id="bgHint"></p>
+      <p class="note">Flood-fills inward from the edges and clears anything close to the corner colour. Handles solid or near-solid backdrops — it won't lift a busy photo.</p>
+    </section>
+
+    <section>
+      <h2>Edge</h2>
+      <div class="row">
+        <label>Outline</label>
+        <div class="seg" id="segOutline">
+          <button data-v="0" class="on">Off</button>
+          <button data-v="all">Full</button>
+          <button data-v="shadow">Shadow side</button>
+        </div>
+      </div>
+      <div class="row">
+        <label>Outline colour</label>
+        <div class="seg" id="segOc">
+          <button data-v="auto" class="on">Auto dark</button>
+          <button data-v="fixed">Fixed</button>
+        </div>
+        <input type="color" id="fixedColor" value="#1b1410">
+      </div>
+      <div class="row">
+        <label>Top-left rim light</label>
+        <div class="seg" id="segRim">
+          <button data-v="1" class="on">On</button>
+          <button data-v="0">Off</button>
+        </div>
+      </div>
+      <p class="note">Rim light on the lit side, outline on the shadow side. Together they give every asset the same light direction.</p>
+    </section>
+
+    <section>
+      <h2>Export</h2>
+      <div class="btnrow">
+        <button class="btn primary" id="dl1">Download 1×</button>
+        <button class="btn" id="dl8">Download 8×</button>
+        <button class="btn primary" id="cp1">Copy 1×</button>
+        <button class="btn" id="cp8">Copy 8×</button>
+        <button class="btn" id="copyPal">Copy palette</button>
+        <button class="btn" id="copyItem">Copy item stub</button>
+      </div>
+      <p class="note"><b>1×</b> is the real sprite — that's what goes in the game, and what you paste into Paint when you want to keep working on it. <b>8×</b> is the same pixels blown up with no blurring, for chat or anywhere it needs to be visible. <b>Copy</b> puts it on the clipboard; <b>Download</b> saves a file.</p>
+    </section>
+
+    <section>
+      <h2>Send to room editor</h2>
+      <select id="roomItem" style="width:100%;margin-bottom:7px"></select>
+      <button class="btn primary full" id="sendRoom" style="width:100%">Replace that item's art</button>
+      <p class="note" id="roomNote">Fits your sprite into the item's tile box and drops it straight into the room editor. Both pages must be open from the same address.</p>
+    </section>
+  </aside>
+
+  <main>
+    <div class="vh">
+      <h2>Result</h2>
+      <div class="readout" id="readout"></div>
+    </div>
+
+    <div class="views">
+      <figure>
+        <figcaption><span>Zoom</span><div class="seg" id="segZoom">
+          <button data-v="0" class="on">Fit</button>
+          <button data-v="4">4×</button>
+          <button data-v="8">8×</button>
+          <button data-v="12">12×</button>
+          <button data-v="16">16×</button>
+        </div></figcaption>
+        <div class="canvasbox"><canvas id="cZ"></canvas><div class="empty" id="eZ" hidden>No image yet</div></div>
+        <div class="tools">
+          <div class="seg" id="segTool">
+            <button data-v="brush" class="on">Brush</button>
+            <button data-v="pick">Dropper</button>
+            <button data-v="erase">Erase</button>
+          </div>
+          <span class="paintchip" id="paintChip" title="Current paint colour"></span>
+          <div class="seg" id="segGrid">
+            <button data-v="1" class="on">Grid</button>
+            <button data-v="0">No grid</button>
+          </div>
+          <span class="spacer"></span>
+          <button class="btn sm" id="undoBtn" disabled>Undo</button>
+          <button class="btn sm" id="resetEdits">Reset edits</button>
+        </div>
+      </figure>
+
+      <div class="stack">
+        <figure>
+          <figcaption><span>1× true size</span><em>what she'll see</em></figcaption>
+          <div class="canvasbox" style="min-height:52px"><canvas id="c1"></canvas><div class="empty" id="e1" hidden>—</div></div>
+        </figure>
+        <figure>
+          <figcaption><span>Scene</span><em id="sceneScale">16px tiles</em></figcaption>
+          <div class="canvasbox" style="padding:8px"><canvas id="cS"></canvas><div class="empty" id="eS" hidden>—</div></div>
+        </figure>
+      </div>
+    </div>
+  </main>
+</div>
+
+<textarea id="clip" style="position:fixed;left:-9999px;top:0"></textarea>
+
+<script>
+"use strict";
+
+/* ============================================================
+   Sprite Blender — downscale, quantise, harmonise.
+   No dependencies. Runs from file:// or any static host.
+   ============================================================ */
+
+const DPR = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
+const $ = id => document.getElementById(id);
+
+/* ---------- palettes ---------- */
+const PRESETS = {
+  "Cozy Oak": [
+    "#1b1410","#2e231b","#463428","#6b4a2f","#8c6540","#b08455","#d4a978",
+    "#f2e3c6","#fff8e7","#2f4430","#4a6b3f","#7a9a55","#a8bf78","#6e2233",
+    "#a33b4a","#d1636a","#263e4d","#3e6478","#6b93a3","#8a6a2f","#d8a844",
+    "#f0cf7a","#c98f7d","#e8b9a3","#4a4a52","#767681","#a7a7ad"
+  ],
+  "Candlelit": [
+    "#0e0a08","#1d130d","#2f1e13","#452a1a","#5f3a20","#7d4f28","#9c6833",
+    "#bd8443","#dba45c","#f0c67c","#fbe6b0","#fff6d8","#4a1d16","#77281f",
+    "#a8402a","#d1663d","#2a2a2e","#454548","#6e6e72","#8b8b7a"
+  ],
+  "Moonlit Stone": [
+    "#0d1017","#161c26","#212a38","#2e3a4c","#3d4d63","#4f6382","#657ba0",
+    "#8296b8","#a3b4cd","#c6d2e2","#e6edf5","#3a4a44","#4f6a5f","#6f8f80",
+    "#94b3a1","#2b2438","#443a5c","#655a80","#8c7fa8","#b3a6c9","#c9a86a","#e8d3a0"
+  ],
+  "Orchard": [
+    "#161a12","#232b1c","#33402a","#4a5c36","#637845","#7e9457","#9db06e",
+    "#bcc98d","#dce5b3","#f3f7e0","#5c3a24","#7d5232","#a06f44","#c4925f",
+    "#e0b787","#7a1f2b","#a8303a","#cf5a56","#e8897a","#f4c6b4","#2a3b4a","#46617a"
+  ]
+};
+
+/* ---------- state ---------- */
+const state = {
+  targetH: 64,
+  mode: "area",
+  palette: PRESETS["Cozy Oak"].slice(),
+  contrast: 1.0,
+  alphaCut: 128,
+  dither: 0,
+  ditherAmt: 0.28,
+  despeckle: 2,
+  outline: "0",           // "0" | "all" | "shadow"
+  outlineColor: "auto",   // "auto" | "fixed"
+  fixedColor: "#1b1410",
+  rim: 1,
+  zoom: 0,          // 0 = fit to the panel
+  grid: 1,
+  tool: "brush",
+  paint: PRESETS["Cozy Oak"][3],
+};
+
+let src = null;       // { data, w, h, canvas }
+let srcBase = null;   // the same, before any background removal, so it can be undone
+let out = null;   // processed { canvas, w, h }
+let rafId = 0;
+
+/* Hand edits live outside the computed image, keyed by output size, so moving
+   a slider never destroys them. Value is a hex string, or null to erase. */
+const edits = new Map();
+const undoStack = [];
+let hover = null;
+let stroke = null;
+
+/* ---------- colour helpers ---------- */
+function hexToRgb(h){
+  const n = parseInt(h.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+function rgbToHex(r, g, b){
+  return "#" + [r, g, b].map(v =>
+    Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0")
+  ).join("");
+}
+function luminance(r, g, b){ return 0.2126*r + 0.7152*g + 0.0722*b; }
+
+/** Perceptually weighted nearest-colour search (redmean approximation). */
+function nearestIdx(pal, r, g, b){
+  let best = 0, bd = Infinity;
+  for (let i = 0; i < pal.length; i++){
+    const p = pal[i];
+    const rm = (r + p[0]) / 2;
+    const dr = r - p[0], dg = g - p[1], db = b - p[2];
+    const d = (2 + rm / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rm) / 256) * db * db;
+    if (d < bd){ bd = d; best = i; if (d === 0) break; }
+  }
+  return best;
+}
+
+/* ---------- resampling ---------- */
+function halve(data, w, h){
+  const nw = Math.max(1, w >> 1), nh = Math.max(1, h >> 1);
+  const o = new Uint8ClampedArray(nw * nh * 4);
+  for (let y = 0; y < nh; y++){
+    for (let x = 0; x < nw; x++){
+      let r = 0, g = 0, b = 0, a = 0, n = 0;
+      for (let dy = 0; dy < 2; dy++){
+        const sy = y * 2 + dy; if (sy >= h) continue;
+        for (let dx = 0; dx < 2; dx++){
+          const sx = x * 2 + dx; if (sx >= w) continue;
+          const i = (sy * w + sx) * 4;
+          const al = data[i + 3] / 255;
+          r += data[i] * al; g += data[i + 1] * al; b += data[i + 2] * al;
+          a += al; n++;
+        }
+      }
+      const j = (y * nw + x) * 4;
+      if (a > 0 && n > 0){
+        o[j] = r / a; o[j + 1] = g / a; o[j + 2] = b / a; o[j + 3] = (a / n) * 255;
+      }
+    }
+  }
+  return { data: o, w: nw, h: nh };
+}
+
+function areaResize(data, sw, sh, tw, th){
+  const o = new Uint8ClampedArray(tw * th * 4);
+  const sx = sw / tw, sy = sh / th;
+  for (let y = 0; y < th; y++){
+    const y0 = y * sy, y1 = (y + 1) * sy;
+    for (let x = 0; x < tw; x++){
+      const x0 = x * sx, x1 = (x + 1) * sx;
+      let r = 0, g = 0, b = 0, a = 0, ws = 0;
+      const ya = Math.max(0, Math.floor(y0)), yb = Math.min(sh, Math.ceil(y1));
+      const xa = Math.max(0, Math.floor(x0)), xb = Math.min(sw, Math.ceil(x1));
+      for (let yy = ya; yy < yb; yy++){
+        const wy = Math.min(y1, yy + 1) - Math.max(y0, yy);
+        if (wy <= 0) continue;
+        for (let xx = xa; xx < xb; xx++){
+          const wx = Math.min(x1, xx + 1) - Math.max(x0, xx);
+          if (wx <= 0) continue;
+          const wt = wx * wy;
+          const i = (yy * sw + xx) * 4;
+          const al = data[i + 3] / 255;
+          r += data[i] * al * wt; g += data[i + 1] * al * wt; b += data[i + 2] * al * wt;
+          a += al * wt; ws += wt;
+        }
+      }
+      const j = (y * tw + x) * 4;
+      if (a > 0.0001 && ws > 0){
+        o[j] = r / a; o[j + 1] = g / a; o[j + 2] = b / a; o[j + 3] = (a / ws) * 255;
+      }
+    }
+  }
+  return o;
+}
+
+function nearestResize(data, sw, sh, tw, th){
+  const o = new Uint8ClampedArray(tw * th * 4);
+  for (let y = 0; y < th; y++){
+    const sy = Math.min(sh - 1, Math.floor((y + 0.5) * sh / th));
+    for (let x = 0; x < tw; x++){
+      const sx = Math.min(sw - 1, Math.floor((x + 0.5) * sw / tw));
+      const i = (sy * sw + sx) * 4, j = (y * tw + x) * 4;
+      o[j] = data[i]; o[j + 1] = data[i + 1]; o[j + 2] = data[i + 2]; o[j + 3] = data[i + 3];
+    }
+  }
+  return o;
+}
+
+function downscale(data, sw, sh, tw, th){
+  if (state.mode === "nearest") return nearestResize(data, sw, sh, tw, th);
+  let cur = { data, w: sw, h: sh };
+  while (cur.h > th * 2 && cur.w > 1 && cur.h > 1){
+    cur = halve(cur.data, cur.w, cur.h);
+  }
+  return areaResize(cur.data, cur.w, cur.h, tw, th);
+}
+
+/* ---------- dithering ---------- */
+const bayerCache = {};
+function bayerTable(n){
+  if (bayerCache[n]) return bayerCache[n];
+  let m = [[0]];
+  while (m.length < n){
+    const s = m.length;
+    const nm = [];
+    for (let y = 0; y < s * 2; y++) nm.push(new Array(s * 2).fill(0));
+    for (let y = 0; y < s; y++){
+      for (let x = 0; x < s; x++){
+        const v = m[y][x] * 4;
+        nm[y][x] = v; nm[y][x + s] = v + 2; nm[y + s][x] = v + 3; nm[y + s][x + s] = v + 1;
+      }
+    }
+    m = nm;
+  }
+  const nn = n * n;
+  const t = m.map(row => row.map(v => (v + 0.5) / nn - 0.5));
+  bayerCache[n] = t;
+  return t;
+}
+
+/* ---------- processing ---------- */
+function applyContrast(px, k){
+  if (Math.abs(k - 1) < 0.002) return;
+  for (let i = 0; i < px.length; i += 4){
+    if (px[i + 3] === 0) continue;
+    px[i]     = 128 + (px[i]     - 128) * k;
+    px[i + 1] = 128 + (px[i + 1] - 128) * k;
+    px[i + 2] = 128 + (px[i + 2] - 128) * k;
+  }
+}
+
+function quantize(px, w, h, pal, stats){
+  const o = new Uint8ClampedArray(px.length);
+  const n = state.dither === 0 ? 0 : (state.dither === 1 ? 4 : 8);
+  const M = n ? bayerTable(n) : null;
+  const amt = state.ditherAmt * 255;
+  const cut = state.alphaCut;
+  for (let y = 0; y < h; y++){
+    for (let x = 0; x < w; x++){
+      const i = (y * w + x) * 4;
+      const a = px[i + 3];
+      if (a === 0) continue;
+      if (a < 255) stats.partial++;
+      if (a < cut){ stats.cutPx++; continue; }       // stays transparent
+      let r = px[i], g = px[i + 1], b = px[i + 2];
+      if (M){
+        const t = M[y % n][x % n] * amt;
+        r += t; g += t; b += t;
+      }
+      const p = pal[nearestIdx(pal, r, g, b)];
+      o[i] = p[0]; o[i + 1] = p[1]; o[i + 2] = p[2]; o[i + 3] = 255;
+    }
+  }
+  return o;
+}
+
+/** Drop connected opaque islands of `minSize` pixels or fewer (8-connected). */
+function despeckle(px, w, h, minSize, stats){
+  if (minSize <= 0) return px;
+  const seen = new Uint8Array(w * h);
+  const out = px.slice();
+  const stack = [];
+  for (let i = 0; i < w * h; i++){
+    if (seen[i] || px[i * 4 + 3] === 0) continue;
+    const comp = [i];
+    seen[i] = 1;
+    stack.length = 0;
+    stack.push(i);
+    while (stack.length){
+      const p = stack.pop();
+      const cx = p % w, cy = (p / w) | 0;
+      for (let dy = -1; dy <= 1; dy++){
+        for (let dx = -1; dx <= 1; dx++){
+          if (!dx && !dy) continue;
+          const nx = cx + dx, ny = cy + dy;
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+          const q = ny * w + nx;
+          if (seen[q] || px[q * 4 + 3] === 0) continue;
+          seen[q] = 1; comp.push(q); stack.push(q);
+        }
+      }
+    }
+    if (comp.length <= minSize){
+      stats.specks++; stats.speckPx += comp.length;
+      for (const p of comp){
+        out[p * 4] = 0; out[p * 4 + 1] = 0; out[p * 4 + 2] = 0; out[p * 4 + 3] = 0;
+      }
+    }
+  }
+  return out;
+}
+
+/** Lift the top and left silhouette edges one palette step toward the light. */
+function rimLight(px, w, h, pal){
+  const srcPx = px.slice();
+  for (let y = 0; y < h; y++){
+    for (let x = 0; x < w; x++){
+      const i = (y * w + x) * 4;
+      if (srcPx[i + 3] === 0) continue;
+      const up = y > 0 ? srcPx[i - w * 4 + 3] : 0;
+      const lf = x > 0 ? srcPx[i - 4 + 3] : 0;
+      if (up !== 0 && lf !== 0) continue;
+      const t = 0.30;
+      const nr = px[i] + (255 - px[i]) * t;
+      const ng = px[i + 1] + (255 - px[i + 1]) * t;
+      const nb = px[i + 2] + (255 - px[i + 2]) * t;
+      const p = pal[nearestIdx(pal, nr, ng, nb)];
+      px[i] = p[0]; px[i + 1] = p[1]; px[i + 2] = p[2];
+    }
+  }
+}
+
+/** Outline outside the silhouette; "shadow" mode skips the lit top/left contour. */
+function outlinePass(px, w, h, pal){
+  const srcPx = px.slice();
+  const shadowOnly = state.outline === "shadow";
+  const fixed = hexToRgb(state.fixedColor);
+  const N = [[0, -1], [0, 1], [-1, 0], [1, 0]];
+  for (let y = 0; y < h; y++){
+    for (let x = 0; x < w; x++){
+      const i = (y * w + x) * 4;
+      if (srcPx[i + 3] !== 0) continue;
+      let nr = -1, ng = -1, nb = -1;
+      for (let k = 0; k < 4; k++){
+        const dx = N[k][0], dy = N[k][1];
+        if (shadowOnly && (dy === -1 || dx === -1)) continue;   // lit sides stay open
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+        const j = (ny * w + nx) * 4;
+        if (srcPx[j + 3] === 0) continue;
+        nr = srcPx[j]; ng = srcPx[j + 1]; nb = srcPx[j + 2];
+        break;
+      }
+      if (nr < 0) continue;
+      let c;
+      if (state.outlineColor === "fixed"){
+        c = fixed;
+      } else {
+        const t = 0.45;
+        c = pal[nearestIdx(pal, nr * (1 - t), ng * (1 - t), nb * (1 - t))];
+      }
+      px[i] = c[0]; px[i + 1] = c[1]; px[i + 2] = c[2]; px[i + 3] = 255;
+    }
+  }
+}
+
+function process(){
+  if (!src) return null;
+  const pal = state.palette.map(hexToRgb);
+  if (!pal.length) return null;
+
+  const pad = state.outline === "0" ? 0 : 1;
+  const totalH = state.targetH;
+  const ch = Math.max(1, totalH - pad * 2);
+  const cw = Math.max(1, Math.round(ch * src.w / src.h));
+
+  const stats = { partial: 0, cutPx: 0, specks: 0, speckPx: 0 };
+  let px = downscale(src.data, src.w, src.h, cw, ch);
+  applyContrast(px, state.contrast);
+  px = quantize(px, cw, ch, pal, stats);
+  px = despeckle(px, cw, ch, state.despeckle, stats);
+
+  // pad so the outline has room to grow into
+  const ow = cw + pad * 2, oh = ch + pad * 2;
+  const buf = new Uint8ClampedArray(ow * oh * 4);
+  if (pad === 0){
+    buf.set(px);
+  } else {
+    for (let y = 0; y < ch; y++){
+      const from = y * cw * 4;
+      buf.set(px.subarray(from, from + cw * 4), ((y + pad) * ow + pad) * 4);
+    }
+  }
+
+  if (state.rim === 1) rimLight(buf, ow, oh, pal);
+  if (state.outline !== "0") outlinePass(buf, ow, oh, pal);
+
+  const c = document.createElement("canvas");
+  c.width = ow; c.height = oh;
+  const g = c.getContext("2d");
+  const img = g.createImageData(ow, oh);
+  img.data.set(buf);
+  g.putImageData(img, 0, 0);
+
+  // pristine copy, so brush strokes can be re-applied without reprocessing
+  const clean = document.createElement("canvas");
+  clean.width = ow; clean.height = oh;
+  clean.getContext("2d").drawImage(c, 0, 0);
+
+  return { canvas: c, clean, w: ow, h: oh, stats };
+}
+
+/* ---------- background removal ---------- */
+function applySrcData(data, w, h){
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  const g = c.getContext("2d");
+  const img = g.createImageData(w, h);
+  img.data.set(data);
+  g.putImageData(img, 0, 0);
+  src = { data, w, h, canvas: c };
+  const thumb = $("dropInner") && $("dropInner").querySelector("img");
+  if (thumb) thumb.src = c.toDataURL("image/png");
+  queue();
+}
+
+function trimData(data, w, h, cut){
+  let x0 = w, y0 = h, x1 = -1, y1 = -1;
+  for (let y = 0; y < h; y++){
+    for (let x = 0; x < w; x++){
+      if (data[(y * w + x) * 4 + 3] <= cut) continue;
+      if (x < x0) x0 = x; if (x > x1) x1 = x;
+      if (y < y0) y0 = y; if (y > y1) y1 = y;
+    }
+  }
+  if (x1 < x0 || y1 < y0) return null;
+  const nw = x1 - x0 + 1, nh = y1 - y0 + 1;
+  const out = new Uint8ClampedArray(nw * nh * 4);
+  for (let y = 0; y < nh; y++){
+    const from = ((y + y0) * w + x0) * 4;
+    out.set(data.subarray(from, from + nw * 4), y * nw * 4);
+  }
+  return { data: out, w: nw, h: nh };
+}
+
+/** Flood-fill inward from the four edges, clearing anything near the corner colour. */
+function removeBackground(){
+  if (!srcBase){ toast("Load an image first"); return; }
+  const w = srcBase.w, h = srcBase.h;
+  const d = new Uint8ClampedArray(srcBase.data);
+
+  const corners = [0, (w - 1) * 4, (h - 1) * w * 4, ((h - 1) * w + w - 1) * 4];
+  let kr = 0, kg = 0, kb = 0;
+  for (const j of corners){ kr += d[j]; kg += d[j + 1]; kb += d[j + 2]; }
+  kr /= 4; kg /= 4; kb /= 4;
+
+  const tol = Number($("bgTol").value) / 100;
+  const t2 = Math.pow(tol * 90 + 4, 2) * 3;   // gentle by default; raise it for noisy backdrops
+
+  const seen = new Uint8Array(w * h);
+  const stack = [];
+  const push = (x, y) => {
+    const i = y * w + x;
+    if (seen[i]) return;
+    seen[i] = 1;
+    const j = i * 4;
+    const dr = d[j] - kr, dg = d[j + 1] - kg, db = d[j + 2] - kb;
+    if (dr * dr + dg * dg + db * db > t2) return;
+    stack.push(i);
+  };
+  for (let x = 0; x < w; x++){ push(x, 0); push(x, h - 1); }
+  for (let y = 0; y < h; y++){ push(0, y); push(w - 1, y); }
+
+  let cleared = 0;
+  while (stack.length){
+    const i = stack.pop();
+    if (d[i * 4 + 3] !== 0){ d[i * 4 + 3] = 0; cleared++; }
+    const x = i % w, y = (i / w) | 0;
+    if (x > 0) push(x - 1, y);
+    if (x < w - 1) push(x + 1, y);
+    if (y > 0) push(x, y - 1);
+    if (y < h - 1) push(x, y + 1);
+  }
+
+  const trimmed = trimData(d, w, h, 8);
+  if (!trimmed){ toast("That cleared everything \u2014 try a lower tolerance"); return; }
+  applySrcData(trimmed.data, trimmed.w, trimmed.h);
+  toast(cleared + " px cleared");
+}
+
+/** Shave the outermost ring of opaque pixels. Repeatable; kills a solid halo. */
+function erodeEdge(){
+  if (!src){ toast("Load an image first"); return; }
+  const w = src.w, h = src.h;
+  const d = src.data;
+  const out = new Uint8ClampedArray(d);
+  let shaved = 0;
+
+  for (let y = 0; y < h; y++){
+    for (let x = 0; x < w; x++){
+      const i = y * w + x;
+      if (d[i * 4 + 3] === 0) continue;
+      let edge = (x === 0 || y === 0 || x === w - 1 || y === h - 1);
+      if (!edge){
+        edge = d[((y - 1) * w + x) * 4 + 3] === 0 ||
+               d[((y + 1) * w + x) * 4 + 3] === 0 ||
+               d[(y * w + x - 1) * 4 + 3] === 0 ||
+               d[(y * w + x + 1) * 4 + 3] === 0;
+      }
+      if (edge){ out[i * 4 + 3] = 0; shaved++; }
+    }
+  }
+
+  if (!shaved){ toast("Nothing left to trim"); return; }
+  const t = trimData(out, w, h, 8);
+  if (!t){ toast("That removed everything \u2014 use Reset"); return; }
+  applySrcData(t.data, t.w, t.h);
+  toast(shaved + " edge px trimmed");
+}
+
+function resetSource(){
+  if (!srcBase){ toast("Nothing to reset"); return; }
+  applySrcData(new Uint8ClampedArray(srcBase.data), srcBase.w, srcBase.h);
+}
+
+/* ---------- rendering ---------- */
+/** Device pixels per sprite pixel. `zoom === 0` fits the panel, on whole pixels. */
+function scaleFor(canvas, w, h, zoom){
+  if (zoom !== 0) return Math.max(1, Math.round(zoom * DPR));
+  const box = canvas.parentElement;
+  if (!box || !box.clientWidth) return Math.max(1, DPR * 4);
+  const availW = Math.max(60, box.clientWidth - 26) * DPR;
+  const availH = Math.max(60, Math.min(window.innerHeight * 0.56, 640)) * DPR;
+  const s = Math.floor(Math.min(availW / w, availH / h));
+  return Math.max(1, Math.min(s, 32 * DPR));
+}
+
+function blit(canvas, source, zoom){
+  const w = source.width, h = source.height;
+  const S = scaleFor(canvas, w, h, zoom);
+  canvas.width = w * S;
+  canvas.height = h * S;
+  canvas.style.width = (w * S / DPR) + "px";
+  canvas.style.height = (h * S / DPR) + "px";
+  const g = canvas.getContext("2d");
+  g.imageSmoothingEnabled = false;
+  g.clearRect(0, 0, canvas.width, canvas.height);
+  g.drawImage(source, 0, 0, canvas.width, canvas.height);
+  return S;
+}
+
+function drawGridLines(canvas, w, h, S){
+  if (S < 3) return;                       // too dense to read
+  const g = canvas.getContext("2d");
+  g.save();
+  for (let x = 0; x <= w; x++){
+    g.fillStyle = x % 8 === 0 ? "rgba(255,235,200,.20)" : "rgba(255,235,200,.07)";
+    g.fillRect(x * S, 0, 1, h * S);
+  }
+  for (let y = 0; y <= h; y++){
+    g.fillStyle = y % 8 === 0 ? "rgba(255,235,200,.20)" : "rgba(255,235,200,.07)";
+    g.fillRect(0, y * S, w * S, 1);
+  }
+  g.restore();
+}
+
+const SCENE = { tile: 16, wall: "#3a3026", floor: "#55402c", line: "#2a221b" };
+
+/** A mock room sized to the sprite: enough wall above it, a floor under it,
+    and shrunk to fit the panel so nothing is ever cropped. */
+function renderScene(canvas, spr){
+  const tile = SCENE.tile;
+  const sprW = spr ? spr.width : 64;
+  const sprH = spr ? spr.height : 64;
+
+  // one tile of headroom above, one tile of floor below
+  const tilesX = Math.max(7, Math.ceil(sprW / tile) + 4);
+  const tilesY = Math.max(4, Math.ceil(sprH / tile) + 2);
+
+  const box = canvas.parentElement;
+  const availW = Math.max(140, (box ? box.clientWidth : 300) - 18);
+  const availH = 340;
+  const fit = Math.min(availW / (tilesX * tile), availH / (tilesY * tile));
+  const S = Math.max(1, Math.min(Math.round(3 * DPR), Math.floor(fit * DPR)));
+
+  const T = tile * S;
+  const W = tilesX * T, H = tilesY * T;
+  canvas.width = W; canvas.height = H;
+  canvas.style.width = (W / DPR) + "px";
+  canvas.style.height = (H / DPR) + "px";
+
+  const g = canvas.getContext("2d");
+  g.imageSmoothingEnabled = false;
+
+  const floorY = Math.round(H - T * 1.15);
+
+  // wall, skirting, floor
+  g.fillStyle = SCENE.wall;  g.fillRect(0, 0, W, floorY);
+  g.fillStyle = "#281f19";   g.fillRect(0, floorY - T * 0.30, W, T * 0.30);
+  g.fillStyle = "#4a3b2c";   g.fillRect(0, floorY - T * 0.34, W, 1);
+  g.fillStyle = SCENE.floor; g.fillRect(0, floorY, W, H - floorY);
+
+  // faint tile grid, so the item's size in tiles is legible
+  g.fillStyle = "rgba(0,0,0,.16)";
+  for (let x = 1; x < tilesX; x++) g.fillRect(x * T, 0, 1, H);
+  for (let y = 1; y < tilesY; y++) g.fillRect(0, y * T, W, 1);
+
+  if (spr){
+    const sw = spr.width * S, sh = spr.height * S;
+    g.drawImage(spr, Math.round((W - sw) / 2), Math.round(floorY - sh), sw, sh);
+  }
+
+  const lbl = $("sceneScale");
+  if (lbl){
+    const cssScale = S / DPR;
+    lbl.textContent = `${cssScale % 1 ? cssScale.toFixed(1) : cssScale}× · ${tilesX}×${tilesY} tiles`;
+  }
+}
+
+function render(){
+  const ro = $("readout");
+
+  $("eZ").hidden = !!src;
+  $("e1").hidden = !!src;
+  $("eS").hidden = !!src;
+
+  if (!src){
+    out = null;
+    [$("cZ"), $("c1"), $("cS")].forEach(c => { c.width = 0; c.height = 0; c.style.width = c.style.height = "0px"; });
+    ro.innerHTML = "";
+    syncHints(null);
+    updateGuide();
+    return;
+  }
+
+  out = process();
+  if (!out) return;
+
+  syncHints(out.stats);
+  updateGuide();
+  applyEdits(out.canvas);
+  renderZoom();
+  blit($("c1"), out.canvas, 1);
+  renderScene($("cS"), out.canvas);
+  syncUndoBtn();
+
+  // readout
+  const pad = state.outline === "0" ? 0 : 1;
+  const contentH = Math.max(1, state.targetH - pad * 2);
+  const ratio = src.h / contentH;
+  let verdict, cls;
+  if (ratio < 2.5){ verdict = "too little detail"; cls = "bad"; }
+  else if (ratio < 4){ verdict = "tight — expect softness"; cls = "warn"; }
+  else if (ratio <= 8.5){ verdict = "ideal range"; cls = "good"; }
+  else if (ratio <= 16){ verdict = "lossy but usable"; cls = "warn"; }
+  else { verdict = "very lossy — simplify the source"; cls = "bad"; }
+
+  const nEdits = (edits.get(editKeyFor(out.w, out.h)) || { size: 0 }).size;
+  ro.innerHTML =
+    `<span class="pill"><b>${out.w}×${out.h}</b> out</span>` +
+    `<span class="pill"><b>${src.w}×${src.h}</b> source</span>` +
+    `<span class="pill ${cls}">${ratio.toFixed(1)}× ratio · ${verdict}</span>` +
+    `<span class="pill"><b>${state.palette.length}</b> colours</span>` +
+    (nEdits ? `<span class="pill good"><b>${nEdits}</b> hand edits</span>` : "");
+}
+
+function queue(){
+  if (rafId) return;
+  rafId = requestAnimationFrame(() => { rafId = 0; render(); });
+}
+
+function borderOpaqueFraction(canvas){
+  const w = canvas.width, h = canvas.height;
+  if (!w || !h) return 0;
+  const d = canvas.getContext("2d").getImageData(0, 0, w, h).data;
+  let n = 0, opaque = 0;
+  const test = (x, y) => { n++; if (d[(y * w + x) * 4 + 3] > 0) opaque++; };
+  for (let x = 0; x < w; x++){ test(x, 0); test(x, h - 1); }
+  for (let y = 0; y < h; y++){ test(0, y); test(w - 1, y); }
+  return n ? opaque / n : 0;
+}
+
+/** One line that tells you what to do next, based on what it can see. */
+function updateGuide(){
+  const g = $("guide");
+  if (!g) return;
+  const bh = $("bgHint");
+
+  if (!src){
+    g.textContent = "Drop an image to start. AI renders, photos and asset packs all work.";
+    if (bh) bh.textContent = "";
+    return;
+  }
+
+  let holes = 0;
+  const d = src.data;
+  for (let i = 3; i < d.length; i += 20) if (d[i] < 250) holes++;
+
+  const frac = out ? borderOpaqueFraction(out.canvas) : 0;
+
+  if (frac > 0.45){
+    g.innerHTML = holes === 0
+      ? "<b>No transparency in this art.</b> The background came in as a solid block, so the sprite reads as a slab. Set a tolerance and hit <b>Remove background</b>."
+      : "<b>Edges are still solid.</b> Try a higher tolerance, or <b>Trim edge</b> to shave the halo \u2014 alpha cut can't remove fully opaque pixels.";
+    if (bh){ bh.textContent = "Solid edges - background still there."; bh.className = "hint warn"; }
+    return;
+  }
+
+  if (bh){
+    bh.textContent = frac > 0.15 ? "A few edge pixels are opaque." : "Background looks clear.";
+    bh.className = "hint live";
+  }
+  g.textContent = "Looking good. Sort the palette and the edge treatment, then send it to the room.";
+}
+
+/** Tell the truth about sliders that currently have nothing to act on. */
+function syncHints(st){
+  const dithOn = state.dither !== 0;
+  $("ditherAmt").disabled = !dithOn;
+  const hD = $("hintDither");
+  hD.textContent = dithOn ? "" : "Dither is off — this slider does nothing until you pick 4×4 or 8×8.";
+  hD.className = "hint";
+  hD.hidden = dithOn;
+
+  const hA = $("hintAlpha");
+  const partial = st ? st.partial : 0;
+  const cutPx = st ? st.cutPx : 0;
+  if (!st){
+    hA.hidden = true;
+  } else if (partial === 0){
+    hA.textContent = "This source has no soft edges — every pixel is fully opaque, so there is nothing to cut.";
+    hA.className = "hint";
+    hA.hidden = false;
+  } else if (cutPx === 0){
+    hA.textContent = partial + " soft px, none dropped at this threshold.";
+    hA.className = "hint live";
+    hA.hidden = false;
+  } else {
+    hA.textContent = cutPx + " px made transparent.";
+    hA.className = "hint live";
+    hA.hidden = false;
+  }
+
+  const hS = $("hintDespeckle");
+  if (!st){
+    hS.hidden = true;
+  } else if (state.despeckle === 0){
+    hS.textContent = "Off — no stray pixels are cleaned up.";
+    hS.className = "hint";
+    hS.hidden = false;
+  } else if (st.specks === 0){
+    hS.textContent = "No stray clusters in this sprite — nothing to remove.";
+    hS.className = "hint";
+    hS.hidden = false;
+  } else {
+    hS.textContent = st.specks + " clusters removed, " + st.speckPx + " px.";
+    hS.className = "hint live";
+    hS.hidden = false;
+  }
+}
+
+/* ---------- hand editing ----------
+   Edits are stored per output size ("24x32") in output-pixel coordinates.
+   They are painted on top of whatever the sliders computed, so the sliders
+   stay live and a brush stroke never gets wiped by a contrast tweak. */
+function editKeyFor(w, h){ return w + "x" + h; }
+
+function applyEdits(canvas){
+  if (!out) return;
+  const m = edits.get(editKeyFor(out.w, out.h));
+  if (!m || !m.size) return;
+  const g = canvas.getContext("2d");
+  for (const [idx, col] of m){
+    const x = idx % canvas.width, y = (idx / canvas.width) | 0;
+    if (col === null){ g.clearRect(x, y, 1, 1); }
+    else { g.fillStyle = col; g.fillRect(x, y, 1, 1); }
+  }
+}
+
+/** Redraw from the pristine base + edits. No reprocessing — used while painting. */
+function repaintOnly(){
+  if (!out) return;
+  const g = out.canvas.getContext("2d");
+  g.clearRect(0, 0, out.canvas.width, out.canvas.height);
+  g.drawImage(out.clean, 0, 0);
+  applyEdits(out.canvas);
+  renderZoom();
+  blit($("c1"), out.canvas, 1);
+  renderScene($("cS"), out.canvas);
+  const nEdits = (edits.get(editKeyFor(out.w, out.h)) || { size: 0 }).size;
+  const pills = $("readout").querySelectorAll(".pill.good, .pill.hedit");
+  pills.forEach(p => { if (p.textContent.includes("hand edits")) p.remove(); });
+  if (nEdits){
+    const s = document.createElement("span");
+    s.className = "pill good";
+    s.innerHTML = `<b>${nEdits}</b> hand edits`;
+    $("readout").appendChild(s);
+  }
+}
+
+function renderZoom(){
+  if (!out) return;
+  const S = blit($("cZ"), out.canvas, state.zoom);
+  if (state.grid) drawGridLines($("cZ"), out.w, out.h, S);
+  if (hover && hover.x >= 0 && hover.y >= 0 && hover.x < out.w && hover.y < out.h && S >= 4){
+    const g = $("cZ").getContext("2d");
+    const lw = Math.max(1, Math.round(S / 4));
+    g.strokeStyle = "rgba(224,162,74,.9)";
+    g.lineWidth = lw;
+    g.strokeRect(hover.x * S + lw / 2, hover.y * S + lw / 2, S - lw, S - lw);
+  }
+}
+
+function pushUndo(){
+  if (!out) return;
+  const k = editKeyFor(out.w, out.h);
+  const m = edits.get(k);
+  undoStack.push({ k, snap: m ? new Map(m) : null });
+  if (undoStack.length > 80) undoStack.shift();
+  syncUndoBtn();
+}
+
+function syncUndoBtn(){ $("undoBtn").disabled = undoStack.length === 0; }
+
+function undoEdit(){
+  const s = undoStack.pop();
+  if (!s) return;
+  if (s.snap && s.snap.size) edits.set(s.k, s.snap);
+  else edits.delete(s.k);
+  syncUndoBtn();
+  repaintOnly();
+}
+
+function imagePoint(canvas, e){
+  if (!out) return null;
+  const r = canvas.getBoundingClientRect();
+  if (!r.width || !r.height) return null;
+  const x = Math.floor((e.clientX - r.left) / r.width * out.w);
+  const y = Math.floor((e.clientY - r.top) / r.height * out.h);
+  if (x < 0 || y < 0 || x >= out.w || y >= out.h) return null;
+  return { x, y };
+}
+
+function sampleAt(x, y){
+  const d = out.canvas.getContext("2d").getImageData(x, y, 1, 1).data;
+  return d[3] === 0 ? null : rgbToHex(d[0], d[1], d[2]);
+}
+
+/** Bresenham, so a fast drag paints a solid line instead of dots. */
+function paintLine(x0, y0, x1, y1){
+  const k = editKeyFor(out.w, out.h);
+  let m = edits.get(k);
+  if (!m){ m = new Map(); edits.set(k, m); }
+  const col = state.tool === "erase" ? null : state.paint;
+  let dx = Math.abs(x1 - x0), dy = Math.abs(y1 - y0);
+  const sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+  let err = dx - dy;
+  for (;;){
+    m.set(y0 * out.w + x0, col);
+    if (x0 === x1 && y0 === y1) break;
+    const e2 = 2 * err;
+    if (e2 > -dy){ err -= dy; x0 += sx; }
+    if (e2 < dx){ err += dx; y0 += sy; }
+  }
+}
+
+function setPaint(hex){
+  state.paint = hex.toLowerCase();
+  $("paintChip").style.background = state.paint;
+  document.querySelectorAll(".sw.sel").forEach(el => el.classList.remove("sel"));
+  const hit = [...document.querySelectorAll("#sws .sw")].find(el =>
+    (el.dataset.hex || "").toLowerCase() === state.paint);
+  if (hit) hit.classList.add("sel");
+}
+
+function wireCanvas(){
+  const c = $("cZ");
+  c.style.cursor = "crosshair";
+  c.style.touchAction = "none";
+
+  c.addEventListener("pointerdown", e => {
+    if (!out) return;
+    const p = imagePoint(c, e);
+    if (!p) return;
+    if (state.tool === "pick"){
+      const col = sampleAt(p.x, p.y);
+      if (col) setPaint(col);
+      return;
+    }
+    e.preventDefault();
+    try { c.setPointerCapture(e.pointerId); } catch (err){}
+    pushUndo();
+    stroke = p; hover = p;
+    paintLine(p.x, p.y, p.x, p.y);
+    repaintOnly();
+  });
+
+  c.addEventListener("pointermove", e => {
+    if (!out) return;
+    const p = imagePoint(c, e);
+    if (stroke && p && state.tool !== "pick"){
+      paintLine(stroke.x, stroke.y, p.x, p.y);
+      stroke = p; hover = p;
+      repaintOnly();
+      return;
+    }
+    const moved = (!!p !== !!hover) || (p && hover && (p.x !== hover.x || p.y !== hover.y));
+    if (moved){ hover = p; renderZoom(); }
+  });
+
+  const end = () => { stroke = null; };
+  c.addEventListener("pointerup", end);
+  c.addEventListener("pointercancel", end);
+  c.addEventListener("pointerleave", () => { stroke = null; hover = null; renderZoom(); });
+}
+
+window.addEventListener("keydown", e => {
+  const t = e.target;
+  if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT")) return;
+  const k = e.key.toLowerCase();
+  if ((e.ctrlKey || e.metaKey) && k === "z"){ e.preventDefault(); undoEdit(); return; }
+  if (k === "b") setTool("brush");
+  else if (k === "p") setTool("pick");
+  else if (k === "e") setTool("erase");
+});
+
+function setTool(name){
+  state.tool = name;
+  const el = $("segTool");
+  [...el.children].forEach(b => b.classList.toggle("on", b.dataset.v === name));
+  $("cZ").style.cursor = name === "pick" ? "copy" : "crosshair";
+}
+
+/* ---------- source loading ---------- */
+function alphaBBox(data, w, h, cut){
+  let x0 = w, y0 = h, x1 = 0, y1 = 0;
+  for (let y = 0; y < h; y++){
+    for (let x = 0; x < w; x++){
+      if (data[(y * w + x) * 4 + 3] <= cut) continue;
+      if (x < x0) x0 = x; if (x > x1) x1 = x;
+      if (y < y0) y0 = y; if (y > y1) y1 = y;
+    }
+  }
+  if (x1 < x0 || y1 < y0) return null;
+  return { x0, y0, x1: x1 + 1, y1: y1 + 1 };
+}
+
+function setSource(imageSource){
+  const MAX = 1400;
+  const iw = imageSource.width, ih = imageSource.height;
+  if (!iw || !ih) return;
+
+  const k = Math.min(1, MAX / Math.max(iw, ih));
+  const cw = Math.max(1, Math.round(iw * k));
+  const ch = Math.max(1, Math.round(ih * k));
+
+  const c = document.createElement("canvas");
+  c.width = cw; c.height = ch;
+  const g = c.getContext("2d");
+  g.imageSmoothingEnabled = true;
+  g.imageSmoothingQuality = "high";
+  g.drawImage(imageSource, 0, 0, cw, ch);
+
+  const id = g.getImageData(0, 0, cw, ch);
+  const bb = alphaBBox(id.data, cw, ch, 8);
+
+  let finalCanvas, fw, fh;
+  if (bb && (bb.x1 - bb.x0 < cw || bb.y1 - bb.y0 < ch)){
+    fw = bb.x1 - bb.x0; fh = bb.y1 - bb.y0;
+    finalCanvas = document.createElement("canvas");
+    finalCanvas.width = fw; finalCanvas.height = fh;
+    finalCanvas.getContext("2d").drawImage(c, bb.x0, bb.y0, fw, fh, 0, 0, fw, fh);
+  } else {
+    finalCanvas = c; fw = cw; fh = ch;
+  }
+
+  const fg = finalCanvas.getContext("2d");
+  const fd = fg.getImageData(0, 0, fw, fh);
+
+  src = { data: fd.data, w: fw, h: fh, canvas: finalCanvas };
+  srcBase = { data: new Uint8ClampedArray(fd.data), w: fw, h: fh };
+
+  // thumbnail
+  let thumb = $("dropInner").querySelector("img");
+  if (!thumb){
+    thumb = document.createElement("img");
+    $("dropInner").innerHTML = "";
+    $("dropInner").appendChild(thumb);
+    const note = document.createElement("div");
+    note.className = "hint";
+    note.textContent = "click to replace";
+    $("dropInner").appendChild(note);
+  }
+  thumb.src = finalCanvas.toDataURL("image/png");
+
+  queue();
+}
+
+async function loadFile(file){
+  if (!file || !file.type.startsWith("image/")) return;
+  try {
+    const bmp = await createImageBitmap(file, { imageOrientation: "from-image" });
+    setSource(bmp);
+    bmp.close && bmp.close();
+  } catch (e){
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => { setSource(img); URL.revokeObjectURL(url); };
+    img.src = url;
+  }
+}
+
+/* ---------- palette UI ---------- */
+function drawSwatches(){
+  const box = $("sws");
+  box.innerHTML = "";
+  state.palette.forEach((hex, i) => {
+    const wrap = document.createElement("div");
+    wrap.className = "swwrap";
+
+    const sw = document.createElement("button");
+    sw.className = "sw";
+    sw.style.background = hex;
+    sw.dataset.hex = hex;
+    sw.title = hex + " — click to paint with, shift-click to edit";
+    sw.onclick = (e) => {
+      if (e.shiftKey){
+        pickColour(hex, v => {
+          state.palette[i] = v;
+          if (state.paint === hex) state.paint = v;
+          drawSwatches();
+          queue();
+        });
+      } else {
+        setPaint(hex);
+      }
+    };
+
+    const x = document.createElement("span");
+    x.className = "swx";
+    x.textContent = "×";
+    x.title = "Remove";
+    x.onclick = (e) => {
+      e.stopPropagation();
+      if (state.palette.length <= 2) return;
+      state.palette.splice(i, 1);
+      drawSwatches();
+      queue();
+    };
+
+    wrap.appendChild(sw);
+    wrap.appendChild(x);
+    box.appendChild(wrap);
+  });
+  $("palCount").textContent = "· " + state.palette.length;
+  setPaint(state.paint);
+}
+
+let colourInput = null;
+function pickColour(start, cb){
+  if (!colourInput){
+    colourInput = document.createElement("input");
+    colourInput.type = "color";
+    colourInput.style.cssText = "position:fixed;left:-9999px";
+    document.body.appendChild(colourInput);
+  }
+  colourInput.value = start;
+  colourInput.oninput = () => cb(colourInput.value);
+  colourInput.onchange = () => cb(colourInput.value);
+  colourInput.click();
+}
+
+/* ---------- median-cut palette extraction ---------- */
+function extractPalette(data, target){
+  const px = [];
+  const total = data.length / 4;
+  const step = Math.max(1, Math.floor(total / 24000));
+  for (let i = 0; i < total; i += step){
+    const j = i * 4;
+    if (data[j + 3] < 128) continue;
+    px.push([data[j], data[j + 1], data[j + 2]]);
+  }
+  if (px.length < target) return px.map(p => rgbToHex(p[0], p[1], p[2]));
+
+  const channelRange = (box) => {
+    let mn = [255, 255, 255], mx = [0, 0, 0];
+    for (const p of box){
+      for (let c = 0; c < 3; c++){
+        if (p[c] < mn[c]) mn[c] = p[c];
+        if (p[c] > mx[c]) mx[c] = p[c];
+      }
+    }
+    let ch = 0, rng = mx[0] - mn[0];
+    for (let c = 1; c < 3; c++){
+      const r = mx[c] - mn[c];
+      if (r > rng){ rng = r; ch = c; }
+    }
+    return { ch, rng };
+  };
+
+  let boxes = [px];
+  while (boxes.length < target){
+    let bi = -1, best = -1, bestCh = 0;
+    for (let i = 0; i < boxes.length; i++){
+      if (boxes[i].length < 2) continue;
+      const info = channelRange(boxes[i]);
+      const score = info.rng * Math.log(boxes[i].length + 1);
+      if (score > best){ best = score; bi = i; bestCh = info.ch; }
+    }
+    if (bi < 0) break;
+    const box = boxes[bi].slice().sort((a, b) => a[bestCh] - b[bestCh]);
+    const mid = box.length >> 1;
+    boxes.splice(bi, 1, box.slice(0, mid), box.slice(mid));
+  }
+
+  const seen = new Set();
+  const hexes = [];
+  for (const box of boxes){
+    if (!box.length) continue;
+    let r = 0, g = 0, b = 0;
+    for (const p of box){ r += p[0]; g += p[1]; b += p[2]; }
+    const hex = rgbToHex(r / box.length, g / box.length, b / box.length);
+    if (seen.has(hex)) continue;
+    seen.add(hex);
+    hexes.push(hex);
+  }
+  return hexes;
+}
+
+/* ---------- export ---------- */
+function download(blob, name){
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+function scaledCanvas(source, factor){
+  const c = document.createElement("canvas");
+  c.width = source.width * factor;
+  c.height = source.height * factor;
+  const g = c.getContext("2d");
+  g.imageSmoothingEnabled = false;
+  g.drawImage(source, 0, 0, c.width, c.height);
+  return c;
+}
+
+/** Put a PNG on the clipboard so it can be pasted straight into Paint or a chat. */
+async function copyImage(canvas, label){
+  if (!canvas){ toast("nothing to copy yet"); return; }
+  if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write){
+    try {
+      const blob = await new Promise(res => canvas.toBlob(res, "image/png"));
+      if (blob){
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+        toast("copied " + label + " — paste it into Paint");
+        return;
+      }
+    } catch (e){ /* fall through to the legacy route */ }
+  }
+  if (copyImageLegacy(canvas)){
+    toast("copied " + label + " — paste it into Paint");
+    return;
+  }
+  toast("clipboard blocked here — use Download instead");
+}
+
+/** Old trick: select an <img> and let execCommand("copy") do the work. */
+function copyImageLegacy(canvas){
+  const holder = document.createElement("div");
+  holder.contentEditable = "true";
+  holder.style.cssText = "position:fixed;left:-9999px;top:0;opacity:0;";
+  const img = document.createElement("img");
+  img.src = canvas.toDataURL("image/png");
+  holder.appendChild(img);
+  document.body.appendChild(holder);
+  const range = document.createRange();
+  range.selectNodeContents(holder);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+  let ok = false;
+  try { ok = document.execCommand("copy"); } catch (e){ ok = false; }
+  sel.removeAllRanges();
+  holder.remove();
+  return ok;
+}
+
+async function copyText(text, label){
+  try {
+    await navigator.clipboard.writeText(text);
+    toast(label);
+  } catch (e){
+    const t = $("clip");
+    t.value = text;
+    t.select();
+    try { document.execCommand("copy"); toast(label); }
+    catch (err){ toast("copy blocked — see the text field in the page"); }
+  }
+}
+
+let toastTimer = 0;
+function toast(msg){
+  $("readout").textContent = msg;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(render, 1400);
+}
+
+/* ---------- sample art ---------- */
+function flower(g, cx, cy, r, c1, c2, cc){
+  const rg = g.createRadialGradient(cx - r * 0.35, cy - r * 0.35, r * 0.1, cx, cy, r * 1.25);
+  rg.addColorStop(0, c1);
+  rg.addColorStop(1, c2);
+  g.fillStyle = rg;
+  for (let i = 0; i < 5; i++){
+    const a = -Math.PI / 2 + i * Math.PI * 2 / 5;
+    g.beginPath();
+    g.arc(cx + Math.cos(a) * r * 0.55, cy + Math.sin(a) * r * 0.55, r * 0.56, 0, Math.PI * 2);
+    g.fill();
+  }
+  g.beginPath();
+  g.arc(cx, cy, r * 0.33, 0, Math.PI * 2);
+  g.fillStyle = cc; g.fill();
+}
+
+function leaf(g, x1, y1, x2, y2, a, b){
+  const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+  const nx = -(y2 - y1), ny = (x2 - x1);
+  g.beginPath();
+  g.moveTo(x1, y1);
+  g.quadraticCurveTo(mx + nx * 0.34, my + ny * 0.34, x2, y2);
+  g.quadraticCurveTo(mx - nx * 0.12, my - ny * 0.12, x1, y1);
+  const lg = g.createLinearGradient(x1, y1, x2, y2);
+  lg.addColorStop(0, a); lg.addColorStop(1, b);
+  g.fillStyle = lg; g.fill();
+}
+
+function makeSample(){
+  const c = document.createElement("canvas");
+  c.width = 440; c.height = 640;
+  const g = c.getContext("2d");
+
+  // stems
+  g.lineWidth = 8; g.strokeStyle = "#3c6b3c"; g.lineCap = "round";
+  const stems = [[220, 440, 150, 252], [220, 440, 300, 234], [220, 440, 222, 214]];
+  for (const [x1, y1, x2, y2] of stems){
+    g.beginPath();
+    g.moveTo(x1, y1);
+    g.quadraticCurveTo((x1 + x2) / 2 + 14, (y1 + y2) / 2, x2, y2);
+    g.stroke();
+  }
+  leaf(g, 206, 368, 182, 322, "#5f9a4e", "#2b5429");
+  leaf(g, 246, 336, 276, 296, "#5f9a4e", "#2b5429");
+
+  // vase
+  g.beginPath();
+  g.moveTo(150, 430);
+  g.bezierCurveTo(120, 472, 120, 562, 145, 610);
+  g.bezierCurveTo(166, 650, 274, 650, 295, 610);
+  g.bezierCurveTo(320, 562, 320, 472, 290, 430);
+  g.closePath();
+  const vg = g.createLinearGradient(115, 0, 325, 0);
+  vg.addColorStop(0, "#2c4a63");
+  vg.addColorStop(0.28, "#6fa8c7");
+  vg.addColorStop(0.55, "#3f6d8c");
+  vg.addColorStop(0.80, "#24404f");
+  vg.addColorStop(1, "#16262f");
+  g.fillStyle = vg; g.fill();
+
+  g.beginPath(); g.ellipse(220, 431, 72, 15, 0, 0, Math.PI * 2);
+  g.fillStyle = "#8fc0d8"; g.fill();
+  g.beginPath(); g.ellipse(220, 434, 58, 10, 0, 0, Math.PI * 2);
+  g.fillStyle = "#101b22"; g.fill();
+
+  g.beginPath();
+  g.moveTo(163, 476);
+  g.quadraticCurveTo(151, 540, 165, 596);
+  g.lineWidth = 11; g.strokeStyle = "rgba(214,240,250,.5)";
+  g.lineCap = "round"; g.stroke();
+
+  flower(g, 150, 252, 46, "#f0a49a", "#a8303a", "#f7dda6");
+  flower(g, 300, 234, 42, "#f5cf85", "#cf5a56", "#fff2c8");
+  flower(g, 222, 214, 36, "#cfa8e0", "#655a80", "#f4e6ff");
+
+  return c;
+}
+
+/* ---------- wiring ---------- */
+function bindSeg(id, key, cast, after){
+  const el = $(id);
+  el.addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    [...el.children].forEach(c => c.classList.toggle("on", c === b));
+    state[key] = cast ? cast(b.dataset.v) : b.dataset.v;
+    after && after();
+    queue();
+  });
+}
+
+bindSeg("segH", "targetH", Number);
+bindSeg("segMode", "mode");
+bindSeg("segDither", "dither", Number);
+bindSeg("segOutline", "outline");
+bindSeg("segOc", "outlineColor");
+bindSeg("segRim", "rim", Number);
+bindSeg("segZoom", "zoom", Number);
+bindSeg("segGrid", "grid", Number);
+
+$("segTool").addEventListener("click", e => {
+  const b = e.target.closest("button");
+  if (b) setTool(b.dataset.v);
+});
+$("undoBtn").addEventListener("click", undoEdit);
+$("resetEdits").addEventListener("click", () => {
+  if (!out) return;
+  const k = editKeyFor(out.w, out.h);
+  const m = edits.get(k);
+  if (!m || !m.size) return;
+  pushUndo();
+  edits.delete(k);
+  repaintOnly();
+});
+
+$("contrast").addEventListener("input", e => {
+  state.contrast = e.target.value / 100;
+  $("contrastV").textContent = e.target.value + "%";
+  queue();
+});
+$("alpha").addEventListener("input", e => {
+  state.alphaCut = Number(e.target.value);
+  $("alphaV").textContent = e.target.value;
+  queue();
+});
+$("ditherAmt").addEventListener("input", e => {
+  state.ditherAmt = e.target.value / 100;
+  $("ditherAmtV").textContent = e.target.value;
+  queue();
+});
+$("despeckle").addEventListener("input", e => {
+  state.despeckle = Number(e.target.value);
+  $("despeckleV").textContent = e.target.value;
+  queue();
+});
+$("rmBg").addEventListener("click", removeBackground);
+$("trimEdge").addEventListener("click", erodeEdge);
+$("resetBg").addEventListener("click", resetSource);
+$("bgTol").addEventListener("input", e => { $("bgTolV").textContent = e.target.value; });
+$("fixedColor").addEventListener("input", e => {
+  state.fixedColor = e.target.value;
+  queue();
+});
+
+// drop zone
+const drop = $("drop");
+drop.addEventListener("click", (e) => {
+  if (e.target.id === "loadSample") return;
+  $("file").click();
+});
+$("loadSample").addEventListener("click", (e) => {
+  e.stopPropagation();
+  setSource(makeSample());
+});
+$("file").addEventListener("change", e => {
+  if (e.target.files[0]) loadFile(e.target.files[0]);
+});
+
+["dragenter", "dragover"].forEach(ev =>
+  drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "dragend"].forEach(ev =>
+  drop.addEventListener(ev, () => drop.classList.remove("over")));
+drop.addEventListener("drop", e => {
+  e.preventDefault(); drop.classList.remove("over");
+  const f = e.dataTransfer.files[0];
+  if (f) loadFile(f);
+});
+
+// page-wide drop + paste
+window.addEventListener("dragover", e => e.preventDefault());
+window.addEventListener("drop", e => {
+  if (drop.contains(e.target)) return;
+  e.preventDefault();
+  const f = e.dataTransfer && e.dataTransfer.files[0];
+  if (f) loadFile(f);
+});
+window.addEventListener("paste", e => {
+  const items = (e.clipboardData && e.clipboardData.items) || [];
+  for (const it of items){
+    if (it.type && it.type.startsWith("image/")){
+      const f = it.getAsFile();
+      if (f){ loadFile(f); break; }
+    }
+  }
+});
+
+// palette
+const presetSel = $("preset");
+Object.keys(PRESETS).forEach(name => {
+  const o = document.createElement("option");
+  o.value = name; o.textContent = name;
+  presetSel.appendChild(o);
+});
+presetSel.addEventListener("change", () => {
+  state.palette = PRESETS[presetSel.value].slice();
+  drawSwatches();
+  queue();
+});
+$("addSw").addEventListener("click", () => {
+  pickColour("#c9a86a", v => {
+    state.palette.push(v);
+    drawSwatches();
+    queue();
+  });
+});
+$("extract").addEventListener("click", () => {
+  if (!src){ toast("load an image first"); return; }
+  const want = Math.max(6, Math.min(48, state.palette.length || 24));
+  const got = extractPalette(src.data, want);
+  if (!got.length){ toast("nothing opaque to sample"); return; }
+  state.palette = got;
+  presetSel.value = "";
+  drawSwatches();
+  queue();
+  toast(got.length + " colours extracted");
+});
+
+/* ---------- send to the room editor ----------
+   Both pages share an origin, so the handoff is just localStorage. The room
+   editor listens for `storage` and rebuilds the sprite live.
+   Keep this list in sync with ITEMS in room-editor/index.html. */
+const ART_KEY = "room-editor.art.v1";
+const TILE_SIZE = 16;
+const ROOM_ITEMS = [
+  { id: "bench.oak",    name: "Bench",    w: 4, h: 2 },
+  { id: "chair.oak",    name: "Chair",    w: 1, h: 2 },
+  { id: "table.oak",    name: "Table",    w: 3, h: 2 },
+  { id: "bookcase.oak", name: "Bookcase", w: 2, h: 4 },
+  { id: "rug.red",      name: "Rug",      w: 5, h: 3 },
+  { id: "painting.a",   name: "Painting", w: 2, h: 2 },
+  { id: "lamp.floor",   name: "Lamp",     w: 1, h: 3 },
+  { id: "sconce.wall",  name: "Sconce",   w: 1, h: 2 },
+  { id: "plant.pot",    name: "Plant",    w: 1, h: 2 }
+];
+
+function fitToBox(src, tw, th){
+  const c = document.createElement("canvas");
+  c.width = tw; c.height = th;
+  const g = c.getContext("2d");
+  const k = Math.min(1, tw / src.width, th / src.height);
+  const dw = Math.max(1, Math.round(src.width * k));
+  const dh = Math.max(1, Math.round(src.height * k));
+  g.imageSmoothingEnabled = k < 1;
+  g.imageSmoothingQuality = "high";
+  g.drawImage(src, Math.round((tw - dw) / 2), th - dh, dw, dh);
+  return c;
+}
+
+const QS = new URLSearchParams(location.search);
+const TARGET_ITEM = QS.get("item");
+const EMBEDDED = QS.get("embed") === "1";
+
+(function buildRoomList(){
+  const sel = $("roomItem");
+  const blank = document.createElement("option");
+  blank.value = ""; blank.textContent = "Choose an item…";
+  sel.appendChild(blank);
+  for (const it of ROOM_ITEMS){
+    const o = document.createElement("option");
+    o.value = it.id;
+    o.textContent = it.name + " \u00b7 " + (it.w * TILE_SIZE) + "\u00d7" + (it.h * TILE_SIZE) + " px";
+    sel.appendChild(o);
+  }
+
+  const tgt = TARGET_ITEM && ROOM_ITEMS.find(t => t.id === TARGET_ITEM);
+  if (tgt){
+    sel.value = tgt.id;
+    if (EMBEDDED){
+      sel.style.display = "none";
+      $("sendRoom").textContent = "Use this art in the room";
+      $("roomNote").textContent = "Replacing " + tgt.name + " \u2014 needs " + (tgt.w * TILE_SIZE) + "\u00d7" + (tgt.h * TILE_SIZE) + " px.";
+    }
+  }
+
+  if (location.protocol === "file:"){
+    $("roomNote").textContent = "This page is open from a file. Load it at http://localhost:8777/sprite-blender/ instead \u2014 otherwise the room editor can't see what you send.";
+    $("roomNote").style.color = "#dfc07a";
+  }
+})();
+
+$("sendRoom").addEventListener("click", () => {
+  if (!out){ toast("Blend something first"); return; }
+  const id = $("roomItem").value;
+  if (!id){ toast("Pick an item first"); return; }
+  if (location.protocol === "file:"){ toast("Open this page from localhost:8777 to send"); return; }
+
+  const meta = ROOM_ITEMS.find(t => t.id === id);
+  const tw = meta.w * TILE_SIZE, th = meta.h * TILE_SIZE;
+  const dataUrl = fitToBox(out.canvas, tw, th).toDataURL("image/png");
+
+  let store = {};
+  try { store = JSON.parse(localStorage.getItem(ART_KEY) || "{}"); } catch (e){ store = {}; }
+  store[id] = dataUrl;
+
+  try {
+    localStorage.setItem(ART_KEY, JSON.stringify(store));
+    $("roomNote").textContent = "Sent " + meta.name + " as " + tw + "\u00d7" + th + " px. The room editor updates live.";
+    $("roomNote").style.color = "#a9c99a";
+    try {
+      if (window.parent !== window) window.parent.postMessage({ type: "art-sent", id }, "*");
+    } catch (err){ /* not embedded */ }
+  } catch (e){
+    $("roomNote").textContent = "Couldn't write browser storage \u2014 open both pages from localhost:8777.";
+    $("roomNote").style.color = "#e2a192";
+  }
+});
+
+// export
+$("dl1").addEventListener("click", () => {
+  if (!out) return;
+  out.canvas.toBlob(b => download(b, "sprite-1x.png"));
+});
+$("dl8").addEventListener("click", () => {
+  if (!out) return;
+  scaledCanvas(out.canvas, 8).toBlob(b => download(b, "sprite-8x.png"));
+});
+$("cp1").addEventListener("click", () => {
+  if (!out) return;
+  copyImage(out.canvas, "1×");
+});
+$("cp8").addEventListener("click", () => {
+  if (!out) return;
+  copyImage(scaledCanvas(out.canvas, 8), "8×");
+});
+$("copyPal").addEventListener("click", () => {
+  copyText(JSON.stringify(state.palette.map(h => h.toUpperCase()), null, 2), "palette copied");
+});
+$("copyItem").addEventListener("click", () => {
+  if (!out){ toast("nothing to describe yet"); return; }
+  const stub = {
+    id: "item.new",
+    name: "New Item",
+    sprite: {
+      src: "items/new.png",
+      px: [out.w, out.h],
+      pivot: [0.5, 1.0]
+    },
+    footprint: [[0, 0]],
+    surface: "floor",
+    blocks: true,
+    anchors: [],
+    tags: [],
+    recolor: null
+  };
+  copyText(JSON.stringify(stub, null, 2), "item stub copied");
+});
+
+// keep previews crisp if the window moves to another monitor
+window.addEventListener("resize", queue);
+
+/* ---------- boot ---------- */
+drawSwatches();
+setPaint(state.paint);
+wireCanvas();
+setTool(state.tool);
+render();
+</script>
+</body>
+</html>
