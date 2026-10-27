@@ -4,3 +4,9 @@ suno-extractor/
 
 # stray archives
 *.zip
+
+# third-party asset packs: licensed "do not redistribute", so they stay local
+_pack/
+room-editor/sprites/
+room-editor/packs/
+room-editor/surfaces/*.png

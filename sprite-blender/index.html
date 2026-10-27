@@ -257,6 +257,33 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block}
       <p class="note"><b>Despeckle</b> drops stray clusters smaller than this many pixels. Thin details can't survive a big downscale — they shatter into orphans, and this sweeps them up before the outline wraps each one in a dark block.</p>
     </section>
 
+    <section id="surfSection">
+      <h2>Wall / floor</h2>
+      <div class="row">
+        <label>Mode</label>
+        <div class="seg" id="segSurf">
+          <button data-v="off" class="on">Off</button>
+          <button data-v="wall">Wall</button>
+          <button data-v="floor">Floor</button>
+        </div>
+      </div>
+      <div class="row">
+        <label>Fit</label>
+        <div class="seg" id="segFit">
+          <button data-v="cover" class="on">Cover</button>
+          <button data-v="tile">Tile</button>
+          <button data-v="mirror">Mirror</button>
+        </div>
+      </div>
+      <div class="row">
+        <label>Repeat</label>
+        <input type="range" id="surfRepeat" min="1" max="6" value="1" style="flex:1">
+        <span class="val" id="surfRepeatV">1</span>
+      </div>
+      <p class="hint" id="surfHint"></p>
+      <p class="note">Surface mode draws at <b>416×112</b> — the exact wall and floor bands of the room. Outline, rim light and despeckle switch off, because a wall has no silhouette. <b>Mirror</b> reflects every other repeat, which is the cheapest way to stop a picture that doesn't tile from showing a seam.</p>
+    </section>
+
     <section>
       <h2>Background</h2>
       <div class="btnrow">
@@ -320,6 +347,7 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block}
       <h2>Send to room editor</h2>
       <select id="roomItem" style="width:100%;margin-bottom:7px"></select>
       <button class="btn primary full" id="sendRoom" style="width:100%">Replace that item's art</button>
+      <button class="btn full" id="sendSurface" style="width:100%;margin-top:7px">Send as wall</button>
       <p class="note" id="roomNote">Fits your sprite into the item's tile box and drops it straight into the room editor. Both pages must be open from the same address.</p>
     </section>
   </aside>
@@ -427,6 +455,7 @@ const state = {
   grid: 1,
   tool: "brush",
   paint: PRESETS["Cozy Oak"][3],
+  surface: { mode: "off", fit: "cover", repeat: 1 },   // off | wall | floor
 };
 
 let src = null;       // { data, w, h, canvas }
@@ -695,10 +724,79 @@ function outlinePass(px, w, h, pal){
   }
 }
 
+/* ---------- surfaces: wall and floor ---------- */
+const SURF_W = 416, SURF_H = 112;
+
+/** Surfaces skip the object pipeline entirely — no outline, no rim, no despeckle. */
+function processSurface(pal){
+  const w = SURF_W, h = SURF_H;
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  const g = c.getContext("2d");
+  g.imageSmoothingEnabled = true;
+  g.imageSmoothingQuality = "high";
+
+  const img = src.canvas;
+  const fit = state.surface.fit;
+  const reps = Math.max(1, Math.min(6, Number(state.surface.repeat) || 1));
+
+  // A source that is already tile-sized is repeated at 1:1 rather than scaled —
+  // stretching a 16px floor tile to fill the band destroys it.
+  const isTile = img.width <= 64 && img.height <= 64;
+
+  const drawCover = (x, bw, flip) => {
+    const k = Math.max(bw / img.width, h / img.height);
+    const dw = img.width * k, dh = img.height * k;
+    g.save();
+    if (flip){ g.translate(x + bw, 0); g.scale(-1, 1); }
+    else g.translate(x, 0);
+    g.drawImage(img, (bw - dw) / 2, (h - dh) / 2, dw, dh);
+    g.restore();
+  };
+
+  if (isTile){
+    const pat = g.createPattern(img, "repeat");
+    if (pat){ g.fillStyle = pat; g.fillRect(0, 0, w, h); }
+    else drawCover(0, w, false);
+  } else if (fit === "cover" || reps === 1){
+    drawCover(0, w, false);
+  } else {
+    const strip = w / reps;
+    for (let i = 0; i < reps; i++) drawCover(i * strip, strip, fit === "mirror" && i % 2 === 1);
+  }
+
+  const id = g.getImageData(0, 0, w, h);
+  const d = id.data;
+  applyContrast(d, state.contrast);        // value control matters more for a wall than a sprite
+  for (let y = 0; y < h; y++){
+    for (let x = 0; x < w; x++){
+      const i = (y * w + x) * 4;
+      if (d[i + 3] < 8){                                  // holes get filled, not left transparent
+        const p0 = pal[0];
+        d[i] = p0[0]; d[i + 1] = p0[1]; d[i + 2] = p0[2]; d[i + 3] = 255;
+        continue;
+      }
+      // a photo needs dither to survive 27 colours; a pixel tile does not
+      const o = (B4[y & 3][x & 3] / 16 - 0.5) * (isTile ? 14 : 44);
+      const p = pal[nearestIdx(pal, d[i] + o, d[i + 1] + o, d[i + 2] + o)];
+      d[i] = p[0]; d[i + 1] = p[1]; d[i + 2] = p[2]; d[i + 3] = 255;
+    }
+  }
+  g.putImageData(id, 0, 0);
+
+  const clean = document.createElement("canvas");
+  clean.width = w; clean.height = h;
+  clean.getContext("2d").drawImage(c, 0, 0);
+
+  return { canvas: c, clean, w, h, stats: { partial: 0, cutPx: 0, specks: 0, speckPx: 0 } };
+}
+
 function process(){
   if (!src) return null;
   const pal = state.palette.map(hexToRgb);
   if (!pal.length) return null;
+
+  if (state.surface.mode !== "off") return processSurface(pal);
 
   const pad = state.outline === "0" ? 0 : 1;
   const totalH = state.targetH;
@@ -880,6 +978,15 @@ function blit(canvas, source, zoom){
   return S;
 }
 
+function drawTileLines(canvas, w, h, S, tile){
+  const g = canvas.getContext("2d");
+  g.save();
+  g.fillStyle = "rgba(255,236,170,0.22)";
+  for (let x = tile; x < w; x += tile) g.fillRect(x * S, 0, 1, h * S);
+  for (let y = tile; y < h; y += tile) g.fillRect(0, y * S, w * S, 1);
+  g.restore();
+}
+
 function drawGridLines(canvas, w, h, S){
   if (S < 3) return;                       // too dense to read
   const g = canvas.getContext("2d");
@@ -974,6 +1081,14 @@ function render(){
   blit($("c1"), out.canvas, 1);
   renderScene($("cS"), out.canvas);
   syncUndoBtn();
+
+  if (state.surface.mode !== "off"){
+    ro.innerHTML =
+      `<span class="pill"><b>${out.w}×${out.h}</b> ${state.surface.mode}</span>` +
+      `<span class="pill"><b>${src.w}×${src.h}</b> source</span>` +
+      `<span class="pill good">${state.surface.fit} · repeat ${state.surface.repeat}</span>`;
+    return;
+  }
 
   // readout
   const pad = state.outline === "0" ? 0 : 1;
@@ -1132,7 +1247,10 @@ function repaintOnly(){
 function renderZoom(){
   if (!out) return;
   const S = blit($("cZ"), out.canvas, state.zoom);
-  if (state.grid) drawGridLines($("cZ"), out.w, out.h, S);
+  if (state.grid){
+    if (state.surface.mode !== "off") drawTileLines($("cZ"), out.w, out.h, S, 16);
+    else drawGridLines($("cZ"), out.w, out.h, S);
+  }
   if (hover && hover.x >= 0 && hover.y >= 0 && hover.x < out.w && hover.y < out.h && S >= 4){
     const g = $("cZ").getContext("2d");
     const lw = Math.max(1, Math.round(S / 4));
@@ -1674,6 +1792,84 @@ $("despeckle").addEventListener("input", e => {
   $("despeckleV").textContent = e.target.value;
   queue();
 });
+function syncSurfaceUI(){
+  const on = state.surface.mode !== "off";
+  const btn = $("sendSurface");
+  btn.textContent = on ? ("Send as " + state.surface.mode) : "Send as wall";
+  btn.disabled = !on;
+  const h = $("surfHint");
+  if (!h) return;
+  if (!on){ h.hidden = true; h.textContent = ""; return; }
+  h.hidden = false;
+  h.className = "hint";
+  h.textContent = "Drawing a " + SURF_W + "\u00d7" + SURF_H + " " + state.surface.mode +
+    ". Object steps are ignored here.";
+}
+
+$("segSurf").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  [...$("segSurf").children].forEach(c => c.classList.toggle("on", c === b));
+  state.surface.mode = b.dataset.v;
+  syncSurfaceUI();
+  queue();
+});
+$("segFit").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  [...$("segFit").children].forEach(c => c.classList.toggle("on", c === b));
+  state.surface.fit = b.dataset.v;
+  syncSurfaceUI();
+  queue();
+});
+$("surfRepeat").addEventListener("input", e => {
+  state.surface.repeat = Number(e.target.value);
+  $("surfRepeatV").textContent = e.target.value;
+  queue();
+});
+syncSurfaceUI();
+
+/* Mode comes from the URL, never from a control. An item session cannot reach
+   the surface pipeline, and a surface session cannot reach the item one.
+   Declared as a function and called later, because MODE is declared further
+   down the file and an IIFE here would hit its dead zone. */
+function applyMode(){
+  if (MODE === "item"){
+    const sec = $("surfSection");
+    if (sec) sec.hidden = true;
+    $("sendSurface").style.display = "none";
+    state.surface.mode = "off";
+  } else if (MODE === "surface"){
+    $("roomItem").style.display = "none";
+    $("sendRoom").style.display = "none";
+    state.surface.mode = SURF_START;
+    [...$("segSurf").children].forEach(b => b.classList.toggle("on", b.dataset.v === SURF_START));
+    syncSurfaceUI();
+  }
+}
+
+$("sendSurface").addEventListener("click", () => {
+  if (state.surface.mode === "off"){ toast("Switch Wall / floor mode on first"); return; }
+  if (location.protocol === "file:"){ toast("Open this page from localhost to send"); return; }
+  out = process();                       // never trust a debounced frame
+  if (!out){ toast("Nothing to send yet"); return; }
+  if (out.w !== SURF_W || out.h !== SURF_H){
+    toast("Output was " + out.w + "×" + out.h + ", expected " + SURF_W + "×" + SURF_H);
+    return;
+  }
+  const which = state.surface.mode;
+  let store = {};
+  try { store = JSON.parse(localStorage.getItem("room-editor.surfaces.v1") || "{}"); } catch (e){ store = {}; }
+  store[which] = out.canvas.toDataURL("image/png");
+  try {
+    localStorage.setItem("room-editor.surfaces.v1", JSON.stringify(store));
+    $("roomNote").textContent = "Sent a " + out.w + "\u00d7" + out.h + " " + which + ". The room updates live.";
+    $("roomNote").style.color = "#a9c99a";
+    try { if (window.parent !== window) window.parent.postMessage({ type: "surface-sent", which }, "*"); } catch (err){}
+  } catch (e){
+    $("roomNote").textContent = "Couldn't write storage \u2014 open both pages from localhost:8777.";
+    $("roomNote").style.color = "#e2a192";
+  }
+});
+
 $("rmBg").addEventListener("click", removeBackground);
 $("trimEdge").addEventListener("click", erodeEdge);
 $("resetBg").addEventListener("click", resetSource);
@@ -1790,6 +1986,9 @@ function fitToBox(src, tw, th){
 const QS = new URLSearchParams(location.search);
 const TARGET_ITEM = QS.get("item");
 const EMBEDDED = QS.get("embed") === "1";
+/* How you arrived decides what this blender is for. No toggle across the line. */
+const MODE = QS.get("mode") || "both";            // item | surface | both (standalone)
+const SURF_START = QS.get("surface") === "floor" ? "floor" : "wall";
 
 (function buildRoomList(){
   const sel = $("roomItem");
@@ -1819,7 +2018,10 @@ const EMBEDDED = QS.get("embed") === "1";
   }
 })();
 
+applyMode();
+
 $("sendRoom").addEventListener("click", () => {
+  out = process();                       // never trust a debounced frame
   if (!out){ toast("Blend something first"); return; }
   const id = $("roomItem").value;
   if (!id){ toast("Pick an item first"); return; }

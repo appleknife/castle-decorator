@@ -133,7 +133,14 @@ main{padding:18px 20px;display:flex;flex-direction:column;gap:12px;min-width:0;o
     <p class="sub">Drag furniture in. It snaps itself.</p>
 
     <section>
-      <h2>Furniture</h2>
+      <h2 id="palTitle">Furniture</h2>
+      <div class="seg" id="segPal" style="width:100%;margin-bottom:9px">
+        <button data-v="furniture" class="on" style="flex:1">Furniture</button>
+        <button data-v="wall" style="flex:1">Walls</button>
+        <button data-v="floor" style="flex:1">Floors</button>
+        <button data-v="pack" style="flex:1">Pack</button>
+      </div>
+      <button class="btn" id="addItem" style="width:100%;margin-bottom:9px">+ Add an item…</button>
       <input type="search" id="palFilter" placeholder="Filter…" autocomplete="off"
              style="width:100%;background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:6px 9px;font:inherit;font-size:12px;margin-bottom:10px">
       <div id="palette"></div>
@@ -171,7 +178,7 @@ main{padding:18px 20px;display:flex;flex-direction:column;gap:12px;min-width:0;o
         </div>
       </div>
       <div class="row">
-        <label>Glow</label>
+        <label>Lamp glow</label>
         <div class="seg" id="segGlow">
           <button data-v="1" class="on">On</button>
           <button data-v="0">Off</button>
@@ -185,19 +192,34 @@ main{padding:18px 20px;display:flex;flex-direction:column;gap:12px;min-width:0;o
         </div>
       </div>
       <div class="row">
-        <label>Lighting</label>
-        <div class="seg" id="segDusk">
-          <button data-v="0" class="on">Day</button>
-          <button data-v="1">Dusk</button>
+        <label>Time</label>
+        <div class="seg" id="segTime">
+          <button data-v="day" class="on">Day</button>
+          <button data-v="dusk">Dusk</button>
+          <button data-v="night">Night</button>
         </div>
       </div>
       <p class="note"><b>Raw</b> keeps the background as-is — smooth, but off-palette. <b>Pixel</b> quantises it into the shared 27 colours, where <b>Dither</b> is the only thing stopping a gradient collapsing into flat bands.</p>
+      <div class="btnrow" style="margin-top:9px">
+        <button class="btn primary" id="pickWallTile">Wall tile…</button>
+        <button class="btn primary" id="pickFloorTile">Floor tile…</button>
+        <button class="btn" id="blenderWall">Wall art…</button>
+        <button class="btn" id="blenderFloor">Floor art…</button>
+        <button class="btn" id="clearWall">Clear wall</button>
+        <button class="btn" id="clearFloor">Clear floor</button>
+        <button class="btn full" id="resetLook">Back to pack look</button>
+      </div>
+      <p class="note"><b>Wall tile / Floor tile</b> open the pack's own sheets — click a 16px square and it repeats across the room. <b>Wall art</b> is for your own images through the blender.</p>
     </section>
 
     <section id="selBox" hidden>
       <h2>Selected</h2>
       <p class="note" id="selName" style="margin:0 0 8px"></p>
       <div class="row">
+        <label>Type</label>
+        <select id="selType" style="flex:1"></select>
+      </div>
+      <div class="row" id="lightRow">
         <label>Light source</label>
         <div class="seg" id="segLight">
           <button data-v="1">On</button>
@@ -209,14 +231,14 @@ main{padding:18px 20px;display:flex;flex-direction:column;gap:12px;min-width:0;o
         <button class="btn" id="pickGlow" style="width:auto;padding:4px 10px;font-size:11px">Set…</button>
         <button class="btn" id="resetGlow" style="width:auto;padding:4px 9px;font-size:11px">Default</button>
       </div>
-      <div class="row">
+      <div class="row" id="radiusRow">
         <label>Glow radius</label>
         <input type="range" id="lightR" min="1" max="6" step="0.1" value="2.4" style="flex:1">
         <span class="val" id="lightRV">2.4</span>
       </div>
       <p class="note" id="glowHint" hidden></p>
       <div class="btnrow">
-        <button class="btn primary" id="pickArt">Open blender</button>
+        <button class="btn primary" id="pickArt">Item art…</button>
         <button class="btn" id="importArt">Import PNG</button>
         <button class="btn full" id="resetArt">Restore art</button>
       </div>
@@ -239,8 +261,11 @@ main{padding:18px 20px;display:flex;flex-direction:column;gap:12px;min-width:0;o
       </div>
       <input type="file" id="bgFile" accept="image/*" hidden>
       <div class="btnrow">
-        <button class="btn full" id="resetRoom">Reset room</button>
+        <button class="btn" id="resetRoom">Demo room</button>
+        <button class="btn" id="emptyRoom">Empty room</button>
+        <button class="btn full" id="resetAllArt">Restore all art</button>
       </div>
+      <p class="note">Restore all art undoes every custom item sprite at once and puts the drawn originals back.</p>
     </section>
 
     <section>
@@ -305,9 +330,44 @@ main{padding:18px 20px;display:flex;flex-direction:column;gap:12px;min-width:0;o
     <strong id="blenderTitle" style="font-size:13px">Blend new art</strong>
     <span class="note" id="blenderSub" style="margin:0"></span>
     <span style="flex:1"></span>
+    <button class="btn" id="blenderReload" style="width:auto;padding:5px 12px" title="Force the blender to reload">Reload</button>
     <button class="btn" id="blenderClose" style="width:auto;padding:5px 14px">Close</button>
   </div>
   <iframe id="blenderFrame" style="flex:1;border:0;width:100%;background:#141110"></iframe>
+</div>
+
+<div id="tileModal" style="display:none;position:fixed;inset:0;z-index:65;background:rgba(8,6,5,.94);flex-direction:column">
+  <div style="display:flex;align-items:center;gap:12px;padding:9px 14px;border-bottom:1px solid var(--line);background:var(--panel)">
+    <strong id="tileTitle" style="font-size:13px">Pick a tile</strong>
+    <span class="note" id="tileHint" style="margin:0"></span>
+    <span style="flex:1"></span>
+    <button class="btn" id="tileClose" style="width:auto;padding:5px 14px">Close</button>
+  </div>
+  <div style="flex:1;overflow:auto;padding:10px;text-align:center">
+    <canvas id="tileSheet" style="image-rendering:pixelated;cursor:crosshair;border:1px solid var(--line)"></canvas>
+  </div>
+</div>
+
+<div id="mkModal" style="display:none;position:fixed;inset:0;z-index:70;background:rgba(8,6,5,.9);align-items:center;justify-content:center">
+  <div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;width:430px;max-width:92vw;max-height:92vh;overflow:auto">
+    <h2 style="margin:0 0 12px">Add an item</h2>
+    <input type="file" id="mkFile" accept="image/png" hidden>
+    <button class="btn full" id="mkPick" style="margin-bottom:11px">Choose a PNG…</button>
+    <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px">
+      <canvas id="mkCanvas" style="image-rendering:pixelated;background:#15110f;border-radius:6px;min-width:48px;min-height:48px"></canvas>
+      <span class="note" id="mkSize" style="margin:0">No image yet</span>
+    </div>
+    <div class="row"><label>Name</label><input id="mkName" type="text" placeholder="Sofa" style="flex:1"></div>
+    <div class="row"><label>Type</label><select id="mkType" style="flex:1"></select></div>
+    <div class="row"><label>Category</label><input id="mkCat" type="text" placeholder="Seating" list="mkCats" style="flex:1"></div>
+    <datalist id="mkCats"></datalist>
+    <div class="row"><label>Tags</label><input id="mkTags" type="text" placeholder="wood, cozy" style="flex:1"></div>
+    <div class="btnrow" style="margin-top:14px">
+      <button class="btn" id="mkCancel">Cancel</button>
+      <button class="btn primary" id="mkSave">Add to palette</button>
+    </div>
+    <p class="note" id="mkHint">Size is read from the file — a 32×48 sprite becomes a 2×3 item.</p>
+  </div>
 </div>
 
 <script>
@@ -323,6 +383,16 @@ const TILE = 16;
 const ROOM = { tx: 26, ty: 14, floorLine: 7 };     // floorLine in tiles from the top
 const PXW = ROOM.tx * TILE;                        // 416
 const PXH = ROOM.ty * TILE;                        // 224
+
+/* Declared up here because item draw routines read state.time to pick a sky. */
+const state = { snapMode: "free", bgDither: true, glow: true, time: "day", lightMode: "raw" };
+
+/* Sunlight is not a switch. Time of day decides how much of it there is. */
+const TIMES = {
+  day:   { name: "Day",   amb: null,                    sky1: "#3e6478", sky2: "#6b93a3", moon: false, sun: "#cfe4ee", power: 1.00 },
+  dusk:  { name: "Dusk",  amb: "rgba(70,40,60,0.45)",   sky1: "#263e4d", sky2: "#8a6a2f", moon: false, sun: "#e8b48a", power: 0.55 },
+  night: { name: "Night", amb: "rgba(8,10,24,0.70)",    sky1: "#1b1410", sky2: "#263e4d", moon: true,  sun: "#93a8d6", power: 0.18 }
+};
 
 /* the shared palette — same one the blender uses */
 const PAL = [
@@ -368,6 +438,7 @@ const TYPES = {
   storage: { category: "Storage",  surface: "floor", layer: 0,  blocks: true,  drop: "wood",    size: [2, 3], anchorsFor: () => [] },
   rug:     { category: "Rugs",     surface: "floor", layer: -1, blocks: false, drop: "cloth",   size: [4, 3], anchorsFor: () => [] },
   wall:    { category: "Wall art", surface: "wall",  layer: 0,  blocks: false, drop: "paper",   size: [2, 2], anchorsFor: () => [] },
+  window:  { category: "Windows",  surface: "wall",  layer: 0,  blocks: false, drop: "glass",   size: [2, 3], anchorsFor: () => [] },
   plant:   { category: "Greenery", surface: "floor", layer: 0,  blocks: true,  drop: "foliage", size: [1, 2], anchorsFor: () => [] },
   light:   { category: "Lighting", surface: "floor", layer: 0,  blocks: true,  drop: "glass",   size: [1, 3], anchorsFor: () => [] },
   decor:   { category: "Decor",    surface: "floor", layer: 0,  blocks: false, drop: "wood",    size: [1, 1], anchorsFor: () => [] }
@@ -450,6 +521,31 @@ const ITEMS = [
     }
   },
   {
+    id: "window.pane", name: "Window", type: "window", w: 2, h: 3,
+    tags: ["glass", "sky", "bright"],
+    areaLight: { count: 5 },              // spread across the width, not a point
+    windowLight: true,
+    light: { at: [0.5, 0.42], r: 2.8, color: "#cfe4ee", strength: 0.55 },
+    draw: (g) => {
+      const T = TIMES[state.time] || TIMES.day;
+      g.fillStyle = C.wood0; g.fillRect(0, 0, 32, 48);
+      g.fillStyle = C.wood2; g.fillRect(1, 1, 30, 44);
+      g.fillStyle = T.sky1; g.fillRect(4, 4, 24, 19);
+      g.fillStyle = T.sky2; g.fillRect(4, 25, 24, 17);
+      g.fillStyle = C.wood1;
+      g.fillRect(15, 4, 2, 38);
+      g.fillRect(4, 22, 24, 2);
+      if (T.moon){
+        g.fillStyle = C.cream2; g.fillRect(20, 8, 6, 6);
+        g.fillStyle = T.sky1;   g.fillRect(23, 7, 4, 4);
+      } else {
+        g.fillStyle = C.cream2; g.fillRect(6, 7, 4, 2);
+        g.fillStyle = C.cream2; g.fillRect(19, 14, 5, 2);
+      }
+      g.fillStyle = C.wood3; g.fillRect(0, 45, 32, 3);
+    }
+  },
+  {
     id: "lamp.floor", name: "Lamp", type: "light", w: 1, h: 3, tags: ["metal", "warm", "glass"],
     light: { at: [0.5, 0.45], r: 2.4, color: "#ffcf7a", strength: 0.55 },
     draw: (g) => {
@@ -492,25 +588,84 @@ const ITEMS = [
       g.fillStyle = C.wood2; g.fillRect(1, 20, 14, 3);
       g.fillStyle = C.wood0; g.fillRect(4, 26, 8, 2);
     }
-  }
+  },
+
+  /* ---- sprite files, from the Modern Farm pack (local only, see .gitignore) ---- */
+  { id: "pack.cheese-shelf", name: "Cheese Shelf", type: "storage", category: "Pantry",
+    w: 2, h: 2, img: "sprites/cheese-shelf.png", tags: ["food", "shelf", "farm"] },
+  { id: "pack.cheese-machine", name: "Cheese Press", type: "storage", category: "Pantry",
+    w: 4, h: 3, img: "sprites/cheese-machine.png", tags: ["food", "machine", "farm"] },
+  { id: "pack.crate", name: "Crate", type: "decor", category: "Pantry",
+    w: 1, h: 1, img: "sprites/crate.png", tags: ["wood", "box", "farm"] },
+  { id: "pack.bucket", name: "Bucket", type: "decor", category: "Pantry",
+    w: 1, h: 1, img: "sprites/bucket.png", tags: ["metal", "farm"] },
+  { id: "pack.basket", name: "Basket", type: "decor", category: "Pantry",
+    w: 1, h: 1, img: "sprites/basket.png", tags: ["wicker", "farm"] },
+
+  /* ---- Modern Interiors, Living Room set (local only, see .gitignore) ---- */
+  { id: "lz.sofa", name: "Sofa", type: "bench", w: 2, h: 3,
+    img: "sprites/sofa.png", tags: ["limezu", "living", "fabric"] },
+  { id: "lz.armchair", name: "Armchair", type: "chair", w: 2, h: 3,
+    img: "sprites/armchair.png", tags: ["limezu", "living", "fabric"] },
+  { id: "lz.side-table", name: "Side Table", type: "table", w: 2, h: 2,
+    img: "sprites/table-low.png", tags: ["limezu", "living", "wood"] },
+  { id: "lz.wardrobe", name: "Wardrobe", type: "storage", w: 2, h: 2,
+    img: "sprites/wardrobe.png", tags: ["limezu", "bedroom", "wood"] },
+  { id: "lz.tall-cabinet", name: "Tall Cabinet", type: "storage", w: 1, h: 3,
+    img: "sprites/bookcase.png", tags: ["limezu", "storage", "wood"] },
+  { id: "lz.palm", name: "Palm", type: "plant", w: 2, h: 2,
+    img: "sprites/palm.png", tags: ["limezu", "plant", "green"] },
+  { id: "lz.tall-plant", name: "Tall Plant", type: "plant", w: 2, h: 3,
+    img: "sprites/plant-tall.png", tags: ["limezu", "plant", "green"] },
+  { id: "lz.table-lamp", name: "Table Lamp", type: "light", w: 1, h: 1,
+    img: "sprites/floor-lamp.png", tags: ["limezu", "lamp", "warm"],
+    light: { at: [0.5, 0.3], r: 2.2, color: "#ffcf7a", strength: 0.55 } },
+  { id: "lz.mat", name: "Mat", type: "rug", w: 1, h: 1,
+    img: "sprites/rug-flat.png", tags: ["limezu", "rug", "small"] },
+  { id: "lz.produce", name: "Produce Basket", type: "decor", w: 1, h: 2,
+    img: "sprites/basket-fruit.png", tags: ["limezu", "food", "green"] }
 ];
 /** Fill in every field an item didn't state, from its type. */
-function resolveTypes(){
-  for (const it of ITEMS){
-    if (!TYPES[it.type]) it.type = "decor";
-    const T = TYPES[it.type];
-    if (it.w === undefined) it.w = T.size[0];
-    if (it.h === undefined) it.h = T.size[1];
-    if (it.surface === undefined) it.surface = T.surface;
-    if (it.layer === undefined) it.layer = T.layer;
-    if (it.blocks === undefined) it.blocks = T.blocks;
-    if (it.category === undefined) it.category = T.category;
-    if (it.drop === undefined) it.drop = T.drop;
-    if (it.tag === undefined) it.tag = T.tag || it.type;
-    if (it.anchors === undefined) it.anchors = T.anchorsFor ? T.anchorsFor(it.w) : [];
-    if (!Array.isArray(it.tags)) it.tags = [];
+function resolveItem(it){
+  if (!TYPES[it.type]) it.type = "decor";
+  const T = TYPES[it.type];
+  if (it.w === undefined) it.w = T.size[0];
+  if (it.h === undefined) it.h = T.size[1];
+  if (it.surface === undefined) it.surface = T.surface;
+  if (it.layer === undefined) it.layer = T.layer;
+  if (it.blocks === undefined) it.blocks = T.blocks;
+  if (it.category === undefined) it.category = T.category;
+  if (it.drop === undefined) it.drop = T.drop;
+  if (it.tag === undefined) it.tag = T.tag || it.type;
+  if (it.anchors === undefined) it.anchors = T.anchorsFor ? T.anchorsFor(it.w) : [];
+  if (!Array.isArray(it.tags)) it.tags = [];
+}
+function resolveTypes(){ for (const it of ITEMS) resolveItem(it); }
+
+/* Items added through the in-game form live in browser storage. */
+const CUSTOM_KEY = "room-editor.customitems.v1";
+function loadCustomItems(){
+  let list = [];
+  try { list = JSON.parse(localStorage.getItem(CUSTOM_KEY) || "[]"); } catch (e){ list = []; }
+  for (const c of list){
+    if (!c || !c.id || !c.img) continue;
+    if (ITEMS.some(x => x.id === c.id)) continue;
+    ITEMS.push({
+      id: c.id, name: c.name || "Item", type: c.type || "decor",
+      w: c.w, h: c.h, category: c.category, tags: c.tags || [],
+      img: c.img, custom: true
+    });
   }
 }
+function saveCustomItems(){
+  const list = ITEMS.filter(i => i.custom).map(i => ({
+    id: i.id, name: i.name, type: i.type, w: i.w, h: i.h,
+    category: i.category, tags: i.tags, img: i.img
+  }));
+  try { localStorage.setItem(CUSTOM_KEY, JSON.stringify(list)); }
+  catch (e){ flashNote("Couldn't store that item \u2014 browser storage may be full.", true); }
+}
+loadCustomItems();
 resolveTypes();
 
 const byId = Object.fromEntries(ITEMS.map(i => [i.id, i]));
@@ -520,6 +675,49 @@ const byId = Object.fromEntries(ITEMS.map(i => [i.id, i]));
 const ART_KEY = "room-editor.art.v1";
 const artOverrides = {};
 let booted = false;
+
+/* Custom wall / floor images, written by the blender's Surface mode.
+   A stored value of "" means "use the generated surface", so clearing is undoable. */
+const SURF_KEY = "room-editor.surfaces.v1";
+const surfImgs = { wall: null, floor: null };
+const surfSrc  = { wall: null, floor: null };   // the source URL, so the look can be saved
+const DEFAULT_SURF = {
+  wall:  null,                              // pick one from the sheet
+  floor: "surfaces/floor-parquet.png"
+};
+
+function loadSurfaces(){
+  let store = {};
+  try { store = JSON.parse(localStorage.getItem(SURF_KEY) || "{}"); } catch (e){ store = {}; }
+  const bandH = PXH - ROOM.floorLine * TILE;
+  for (const k of ["wall", "floor"]){
+    surfImgs[k] = null;
+    const url = store[k] === "" ? null : (store[k] || DEFAULT_SURF[k]);
+    surfSrc[k] = url;
+    if (!url) continue;
+    const img = new Image();
+    img.onload = () => {
+      surfImgs[k] = img;
+      syncSurfaceButtons();
+      if (booted) render();
+    };
+    img.src = url;
+  }
+  syncSurfaceButtons();
+}
+
+/** Say out loud which surfaces are custom, so nobody has to guess. */
+function syncSurfaceButtons(){
+  const w = $("clearWall"), f = $("clearFloor");
+  if (w){
+    w.disabled = !surfImgs.wall;
+    w.textContent = surfImgs.wall ? "Clear wall \u00b7 custom" : "Clear wall";
+  }
+  if (f){
+    f.disabled = !surfImgs.floor;
+    f.textContent = surfImgs.floor ? "Clear floor \u00b7 custom" : "Clear floor";
+  }
+}
 try {
   const raw = localStorage.getItem(ART_KEY);
   if (raw) Object.assign(artOverrides, JSON.parse(raw));
@@ -530,7 +728,8 @@ function saveArt(){
   catch (e){ flashNote("Couldn't store that art \u2014 storage may be full.", true); }
 }
 
-/** Build an item's sprite: custom art if present, otherwise the draw routine. */
+/** Build an item's sprite. Precedence: hand-edited art, then a sprite file,
+    then the procedural draw routine, then a visible placeholder. */
 function buildSprite(it){
   const w = it.w * TILE, h = it.h * TILE;
   const c = document.createElement("canvas");
@@ -538,12 +737,18 @@ function buildSprite(it){
   const g = c.getContext("2d");
   it.sprite = c;
 
-  const dataUrl = artOverrides[it.id];
-  if (!dataUrl){
-    g.imageSmoothingEnabled = false;
-    it.draw(g, w, h);
-    return c;
-  }
+  const fallback = () => {
+    g.clearRect(0, 0, w, h);
+    if (it.draw){ g.imageSmoothingEnabled = false; it.draw(g, w, h); return; }
+    // asset missing (e.g. pack art not present in this checkout)
+    g.strokeStyle = "rgba(224,162,74,.55)";
+    g.setLineDash([2, 2]);
+    g.strokeRect(0.5, 0.5, w - 1, h - 1);
+    g.setLineDash([]);
+  };
+
+  const source = artOverrides[it.id] || it.img;
+  if (!source){ fallback(); return c; }
 
   const img = new Image();
   img.onload = () => {
@@ -558,7 +763,8 @@ function buildSprite(it){
     buildPalette();
     if (booted) render();
   };
-  img.src = dataUrl;
+  img.onerror = () => { fallback(); buildPalette(); if (booted) render(); };
+  img.src = source;
   return c;
 }
 
@@ -758,25 +964,49 @@ let bgPixel = condition(rawBg, PXW, PXH, true);
 let showRaw = true;
 let showSnap = false;
 let showGrid = false;
+let palMode = "furniture";      // furniture | wall | floor
 let placements = [];
 let selected = -1;
 let picking = false;      // waiting for the click that sets the glow origin
 let carry = null;         // { def, x, y, from: index|null, live: bool }
 let guides = [];
-const state = { snapMode: "free", bgDither: true, glow: true, dusk: false, lightMode: "raw" };
+
+/* The licensed art is not committed, so a deployed build has to work without it. */
+let packArtOK = false;
+function probePackArt(cb){
+  const img = new Image();
+  img.onload = () => { packArtOK = true; cb(); };
+  img.onerror = () => { packArtOK = false; cb(); };
+  img.src = "surfaces/walls-sheet.png";   // gone in a deploy, same as the sprites
+}
+
+const CLASSIC_ROOM = [
+  { item: "bookcase.oak", x: 1,  y: 8 },
+  { item: "bench.oak",    x: 4,  y: 8 },
+  { item: "painting.a",   x: 4,  y: 4 },
+  { item: "table.oak",    x: 12, y: 8 },
+  { item: "chair.oak",    x: 11, y: 8 },
+  { item: "chair.oak",    x: 15, y: 8 },
+  { item: "lamp.floor",   x: 18, y: 8 },
+  { item: "sconce.wall",  x: 21, y: 4 },
+  { item: "rug.red",      x: 7,  y: 12 },
+  { item: "plant.pot",    x: 10, y: 11 }
+];
 
 function defaultRoom(){
+  if (!packArtOK){ placements = CLASSIC_ROOM.map(p => ({ ...p })); selected = -1; return; }
   placements = [
-    { item: "bookcase.oak", x: 1,  y: 8 },
-    { item: "bench.oak",    x: 4,  y: 8 },
-    { item: "painting.a",   x: 4,  y: 4 },
-    { item: "table.oak",    x: 12, y: 8 },
-    { item: "chair.oak",    x: 11, y: 8 },
-    { item: "chair.oak",    x: 15, y: 8 },
-    { item: "lamp.floor",   x: 18, y: 8 },
-    { item: "sconce.wall",  x: 21, y: 4 },
-    { item: "rug.red",      x: 7,  y: 12 },
-    { item: "plant.pot",    x: 10, y: 11 }
+    { item: "lz.wardrobe",     x: 1,  y: 9 },
+    { item: "lz.sofa",         x: 4,  y: 9 },
+    { item: "lz.side-table",   x: 7,  y: 9 },
+    { item: "lz.armchair",     x: 10, y: 9 },
+    { item: "lz.tall-plant",   x: 13, y: 9 },
+    { item: "lz.table-lamp",   x: 15, y: 9 },
+    { item: "lz.palm",         x: 17, y: 10 },
+    { item: "lz.tall-cabinet", x: 20, y: 9 },
+    { item: "lz.produce",      x: 22, y: 9 },
+    { item: "painting.a",      x: 6,  y: 4 },
+    { item: "window.pane",     x: 11, y: 4 }
   ];
   selected = -1;
 }
@@ -981,25 +1211,48 @@ function drawLights(g, lights){
 
 /** Every light in the room, in room-pixel coordinates. */
 function collectLights(){
-  if (!state.glow) return [];
   const out = [];
   for (let i = 0; i < placements.length; i++){
     const p = placements[i], d = byId[p.item];
     if (p.light === false) continue;
     const L = d.light || (p.light ? DEFAULT_LIGHT : null);
     if (!L) continue;
+    // Glow is a lamp switch. Sunlight comes through a window whether the lamps
+    // are lit or not, so area lights ignore it entirely.
+    if (!d.areaLight && !state.glow) continue;
     // a lamp being dragged carries its light with it
     const px = (carry && carry.from === i) ? carry.x : p.x;
     const py = (carry && carry.from === i) ? carry.y : p.y;
     const at = p.lightAt || L.at;          // per-placement origin, if one was set
+    const baseY = py * TILE, floorY = ROOM.floorLine * TILE;
+
+    if (d.areaLight){
+      // A window is not a point source. Several soft sources strung across its
+      // width sum into a broad wash instead of a circle.
+      const n = d.areaLight.count || 5;
+      const T = TIMES[state.time] || TIMES.day;
+      const col = hexToRgbArr(T.sun);
+      const strength = (L.strength || DEFAULT_LIGHT.strength) * T.power;
+      for (let k = 0; k < n; k++){
+        const fx = (k + 0.5) / n;
+        out.push({
+          cx: (px + fx * d.w) * TILE,
+          cy: (py - d.h + at[1]) * TILE,
+          r: (p.lightR || L.r) * TILE * 0.62,
+          col, strength: strength * 0.34,
+          baseY, floorY
+        });
+      }
+      continue;
+    }
+
     out.push({
       cx: (px + at[0]) * TILE,
       cy: (py - d.h + at[1]) * TILE,
       r: (p.lightR || L.r) * TILE,
       col: hexToRgbArr(L.color || DEFAULT_LIGHT.color),
       strength: L.strength || DEFAULT_LIGHT.strength,
-      baseY: py * TILE,
-      floorY: ROOM.floorLine * TILE
+      baseY, floorY
     });
   }
   return out;
@@ -1061,6 +1314,22 @@ function computeScale(){
   return Math.max(1, Math.min(s, 6 * DPR));
 }
 
+/** Full-band art is drawn as-is. A small tile is repeated at 1:1 instead of
+    being stretched, which is what keeps pixel-art floors crisp. */
+function drawSurface(g, img, x, y, w, h){
+  if (img.width >= w && img.height >= h){
+    g.drawImage(img, x, y, w, h);
+    return;
+  }
+  const pat = g.createPattern(img, "repeat");
+  if (!pat){ g.drawImage(img, x, y, w, h); return; }
+  g.save();
+  g.translate(x, y);
+  g.fillStyle = pat;
+  g.fillRect(0, 0, w, h);
+  g.restore();
+}
+
 function drawScene(){
   const g = sctx;
   g.imageSmoothingEnabled = false;
@@ -1076,6 +1345,11 @@ function drawScene(){
   } else {
     g.drawImage(bgPixel, 0, 0);
   }
+
+  // a custom wall or floor replaces the generated band, leaving the rest alone
+  const bandY = ROOM.floorLine * TILE;
+  if (surfImgs.wall)  drawSurface(g, surfImgs.wall,  0, 0, PXW, bandY);
+  if (surfImgs.floor) drawSurface(g, surfImgs.floor, 0, bandY, PXW, PXH - bandY);
 
   // snap map
   if (showSnap){
@@ -1112,13 +1386,14 @@ function drawScene(){
     g.drawImage(d.sprite, Math.round(p.x * TILE), Math.round(p.y * TILE - d.h * TILE));
   }
 
-  // dusk pulls everything down, then light sources add back on top
-  if (state.dusk){
-    g.fillStyle = "rgba(10,12,26,0.58)";
+  // the hour pulls everything down, then light sources add back on top
+  const TOD = TIMES[state.time] || TIMES.day;
+  if (TOD.amb){
+    g.fillStyle = TOD.amb;
     g.fillRect(0, 0, PXW, PXH);
   }
 
-  if (state.glow && state.lightMode === "pixel"){
+  if (state.lightMode === "pixel"){
     drawLights(g, collectLights());
   }
 
@@ -1204,7 +1479,7 @@ function paint(){
   g.imageSmoothingEnabled = false;
   g.clearRect(0, 0, c.width, c.height);
   g.drawImage(scene, 0, 0, c.width, c.height);
-  if (state.glow && state.lightMode === "raw") paintRawLights(g, S);
+  if (state.lightMode === "raw") paintRawLights(g, S);
   return S;
 }
 
@@ -1215,7 +1490,9 @@ function present(){
     `<span class="pill"><b>${ROOM.tx}×${ROOM.ty}</b> tiles</span>` +
     `<span class="pill"><b>${n}</b> placed</span>` +
     `<span class="pill"><b>${S / DPR}×</b> zoom</span>` +
-    `<span class="pill good"><b>${PAL.length}</b> colours</span>`;
+    `<span class="pill good"><b>${PAL.length}</b> colours</span>` +
+    (surfImgs.wall ? '<span class="pill good">custom wall</span>' : '') +
+    (surfImgs.floor ? '<span class="pill good">custom floor</span>' : '');
 
   const mag = guides.some(g => g.type === "seat") ? "seat"
             : guides.some(g => g.type === "edge") ? "flush"
@@ -1236,22 +1513,47 @@ function syncSelection(){
   box.hidden = false;
   const p = placements[selected], d = byId[p.item];
   $("selName").textContent = d.name + " · " + d.type + " · " + d.w + "×" + d.h + " tiles";
+  const stSel = $("selType");
+  if (stSel){
+    if (!stSel.options.length){
+      for (const k of Object.keys(TYPES)){
+        const o = document.createElement("option"); o.value = k; o.textContent = k;
+        stSel.appendChild(o);
+      }
+    }
+    stSel.value = d.type;
+  }
+
   const on = p.light === false ? false : (p.light === true || !!d.light);
   setSeg("segLight", on ? "1" : "0");
   const r = p.lightR || (d.light && d.light.r) || DEFAULT_LIGHT.r;
   $("lightR").value = r;
   $("lightRV").textContent = Number(r).toFixed(1);
 
+  // A window is not a lamp: no switch, no glow point. Its light is the sun's.
+  const isSun = d.type === "window";
+  const lightRow = $("lightRow"), radiusRow = $("radiusRow");
+  if (lightRow) lightRow.hidden = isSun;
+  if (radiusRow) radiusRow.hidden = isSun;
+
   const grow = $("glowRow");
-  if (grow) grow.hidden = !on;
+  if (grow) grow.hidden = isSun || !on;
+
   const gh = $("glowHint");
   if (gh){
-    gh.hidden = !on;
-    if (on){
-      gh.textContent = picking
-        ? "Click the part of the item that should cast the light. Esc cancels."
-        : (p.lightAt ? "Custom origin: " + p.lightAt[0].toFixed(2) + ", " + p.lightAt[1].toFixed(2) + " tiles from its top-left."
-                     : "Using the item's built-in origin.");
+    if (isSun){
+      gh.hidden = false;
+      gh.className = "hint live";
+      gh.textContent = "Sunlight \u2014 no switch, no glow point. It brightens and fades with the time of day.";
+    } else {
+      gh.hidden = !on;
+      gh.className = "hint";
+      if (on){
+        gh.textContent = picking
+          ? "Click the part of the item that should cast the light. Esc cancels."
+          : (p.lightAt ? "Custom origin: " + p.lightAt[0].toFixed(2) + ", " + p.lightAt[1].toFixed(2) + " tiles from its top-left."
+                       : "Using the item's built-in origin.");
+      }
     }
   }
 
@@ -1354,6 +1656,11 @@ function endCarry(){
       placements.push({ item: carry.def.id, x: fx, y: fy });
       selected = placements.length - 1;
     }
+    if (carry.temp){ saveCustomItems(); buildPalette(); }
+  } else if (carry.temp){
+    const idx = ITEMS.indexOf(carry.def);
+    if (idx >= 0) ITEMS.splice(idx, 1);
+    selected = -1;
   }
   carry = null;
   guides = [];
@@ -1389,10 +1696,177 @@ function makeCard(it){
   return card;
 }
 
+/** Cut a 16x16 tile out of a pack sheet and use it as a surface. */
+function applyTile(which, img, cx, cy){
+  const off = document.createElement("canvas");
+  off.width = 16; off.height = 16;
+  off.getContext("2d").drawImage(img, cx, cy, 16, 16, 0, 0, 16, 16);
+  const url = off.toDataURL("image/png");
+  surfSrc[which] = url;
+  let store = {};
+  try { store = JSON.parse(localStorage.getItem(SURF_KEY) || "{}"); } catch (e){ store = {}; }
+  store[which] = url;
+  try { localStorage.setItem(SURF_KEY, JSON.stringify(store)); } catch (e){}
+  const im = new Image();
+  im.onload = () => { surfImgs[which] = im; syncSurfaceButtons(); render(); };
+  im.src = url;
+  flashNote("\u2713 " + which + " changed");
+}
+
+/** The wallpaper / flooring tab: the pack's own sheet, click a square to apply. */
+function buildTilePalette(box, which){
+  box.innerHTML = "";
+  const wrap = document.createElement("div");
+  wrap.style.cssText = "overflow:auto;max-height:430px;border:1px solid var(--line);border-radius:8px;background:#1a1512";
+  const c = document.createElement("canvas");
+  c.style.cssText = "image-rendering:pixelated;cursor:crosshair;display:block";
+  wrap.appendChild(c);
+  box.appendChild(wrap);
+
+  const btn = document.createElement("button");
+  btn.className = "btn full";
+  btn.textContent = "Browse full size…";
+  btn.style.marginTop = "8px";
+  btn.onclick = () => openTilePicker(which);
+  box.appendChild(btn);
+
+  const note = document.createElement("p");
+  note.className = "note";
+  note.textContent = "Click a 16×16 square to apply it to the " + which + ".";
+  box.appendChild(note);
+
+  const img = new Image();
+  img.onload = () => {
+    c.width = img.width; c.height = img.height;
+    const g = c.getContext("2d");
+    g.imageSmoothingEnabled = false;
+    g.drawImage(img, 0, 0);
+    g.strokeStyle = "rgba(0,0,0,.22)";
+    for (let x = 0; x <= img.width; x += 16){ g.beginPath(); g.moveTo(x + .5, 0); g.lineTo(x + .5, c.height); g.stroke(); }
+    for (let y = 0; y <= img.height; y += 16){ g.beginPath(); g.moveTo(0, y + .5); g.lineTo(c.width, y + .5); g.stroke(); }
+    c.onclick = (e) => applyTile(which, img, Math.floor(e.offsetX / 16) * 16, Math.floor(e.offsetY / 16) * 16);
+  };
+  img.onerror = () => { box.innerHTML = '<p class="note">Couldn\'t load the sheet.</p>'; };
+  img.src = TILE_SHEETS[which];
+}
+
+/* ---------- pack browser ---------- */
+const PACKS = [
+  { id: "living-room", name: "Living Room", file: "living-room" },
+  { id: "bedroom", name: "Bedroom", file: "bedroom" },
+  { id: "kitchen", name: "Kitchen", file: "kitchen" },
+  { id: "bathroom", name: "Bathroom", file: "bathroom" },
+  { id: "classroom-and-library", name: "Classroom & Library", file: "classroom-and-library" },
+  { id: "art", name: "Art", file: "art" },
+  { id: "music-and-sport", name: "Music & Sport", file: "music-and-sport" },
+  { id: "condominium", name: "Condominium", file: "condominium" },
+  { id: "gym", name: "Gym", file: "gym" },
+  { id: "japanese-interiors", name: "Japanese Interiors", file: "japanese-interiors" },
+  { id: "halloween", name: "Halloween", file: "halloween" },
+  { id: "christmas", name: "Christmas", file: "christmas" },
+  { id: "birthday-party", name: "Birthday Party", file: "birthday-party" },
+  { id: "basement", name: "Basement", file: "basement" },
+  { id: "clothing-store", name: "Clothing Store", file: "clothing-store" },
+  { id: "grocery-store", name: "Grocery Store", file: "grocery-store" },
+  { id: "ice-cream-shop", name: "Ice Cream Shop", file: "ice-cream-shop" },
+  { id: "jail", name: "Jail", file: "jail" },
+  { id: "hospital-singles", name: "Hospital", file: "hospital-singles" },
+  { id: "museum", name: "Museum", file: "museum" },
+  { id: "conference-hall", name: "Conference Hall", file: "conference-hall" },
+  { id: "television-and-film-studio", name: "TV & Film Studio", file: "television-and-film-studio" },
+  { id: "fishing", name: "Fishing", file: "fishing" },
+  { id: "shooting-range", name: "Shooting Range", file: "shooting-range" }
+];
+let packTheme = "living-room";
+let packAtlas = null;      // { id, name, img, meta }
+
+function loadPack(cb){
+  if (packAtlas && packAtlas.id === packTheme){ cb && cb(); return; }
+  const p = PACKS.find(x => x.id === packTheme);
+  fetch("packs/atlas-" + p.file + ".json")
+    .then(r => r.json())
+    .then(meta => {
+      const img = new Image();
+      img.onload = () => { packAtlas = { id: p.id, name: p.name, img, meta }; cb && cb(); };
+      img.src = "packs/atlas-" + p.file + ".png";
+    })
+    .catch(() => { packAtlas = null; });
+}
+
+function buildPackPalette(box){
+  box.innerHTML = "";
+  const sel = document.createElement("select");
+  sel.style.cssText = "width:100%;margin-bottom:8px;background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 7px;font:inherit;font-size:12px";
+  for (const p of PACKS){
+    const o = document.createElement("option");
+    o.value = p.id; o.textContent = p.name;
+    if (p.id === packTheme) o.selected = true;
+    sel.appendChild(o);
+  }
+  sel.onchange = () => { packTheme = sel.value; buildPackPalette(box); };
+  box.appendChild(sel);
+
+  const wrap = document.createElement("div");
+  wrap.style.cssText = "overflow:auto;max-height:400px;border:1px solid var(--line);border-radius:8px;background:#1a1512";
+  const c = document.createElement("canvas");
+  c.style.cssText = "image-rendering:pixelated;cursor:grab;display:block;touch-action:none";
+  wrap.appendChild(c);
+  box.appendChild(wrap);
+
+  const note = document.createElement("p");
+  note.className = "note";
+  note.textContent = "Drag a sprite into the room. It arrives as Decor — change the type in the Selected panel.";
+  box.appendChild(note);
+
+  loadPack(() => {
+    if (!packAtlas){ box.innerHTML = '<p class="note">Pack atlas not found.</p>'; return; }
+    const img = packAtlas.img;
+    c.width = img.width; c.height = img.height;
+    const g = c.getContext("2d");
+    g.imageSmoothingEnabled = false;
+    g.drawImage(img, 0, 0);
+    wirePackCanvas(c);
+  });
+}
+
+function wirePackCanvas(c){
+  c.onpointerdown = (e) => {
+    if (!packAtlas) return;
+    const mx = e.offsetX, my = e.offsetY;
+    const hit = packAtlas.meta.items.find(it => mx >= it.x && mx < it.x + it.w && my >= it.y && my < it.y + it.h);
+    if (!hit) return;
+    e.preventDefault();
+    const off = document.createElement("canvas");
+    off.width = hit.w; off.height = hit.h;
+    off.getContext("2d").drawImage(packAtlas.img, hit.x, hit.y, hit.w, hit.h, 0, 0, hit.w, hit.h);
+    const def = {
+      id: "pack." + packAtlas.id + "." + hit.n + "." + Date.now().toString(36),
+      name: packAtlas.name + " " + hit.n,
+      type: "decor",
+      w: Math.max(1, Math.ceil(hit.w / TILE)),
+      h: Math.max(1, Math.ceil(hit.h / TILE)),
+      category: packAtlas.name,
+      tags: ["pack", packAtlas.id],
+      img: off.toDataURL("image/png"),
+      custom: true
+    };
+    resolveItem(def);
+    ITEMS.push(def);
+    buildSprite(def);
+    startCarry(def, e, null);
+    if (carry) carry.temp = true;
+    try { c.setPointerCapture(e.pointerId); } catch (err){}
+  };
+  c.onpointermove = (e) => { if (carry) updateCarry(e); };
+  c.onpointerup = (e) => { if (carry){ updateCarry(e); endCarry(); } };
+}
+
 /** Grouped by category, filtered by the search box. */
 function buildPalette(){
   const box = $("palette");
   if (!box) return;
+  if (palMode === "pack"){ buildPackPalette(box); return; }
+  if (palMode !== "furniture"){ buildTilePalette(box, palMode); return; }
   box.innerHTML = "";
 
   const q = (($("palFilter") && $("palFilter").value) || "").trim().toLowerCase();
@@ -1535,6 +2009,7 @@ function roomJSON(){
         { x: 0, y: floor.y, w: PXW, h: floor.h }
       ]
     },
+    look: { wall: surfSrc.wall, floor: surfSrc.floor },
     placements: placements.map(p => {
       const o = {
         item: p.item,
@@ -1682,18 +2157,36 @@ $("resetGlow").addEventListener("click", () => {
   flashNote("Glow point back to the item default");
 });
 
-let blenderItem = null;
+let blenderSrc = null;
 
-function openBlender(){
-  if (selected < 0 || !placements[selected]) return;
-  const it = byId[placements[selected].item];
-  $("blenderTitle").textContent = "Blend new art \u2014 " + it.name;
-  $("blenderSub").textContent = (it.w * TILE) + "\u00d7" + (it.h * TILE) + " px";
-  if (blenderItem !== it.id){
-    $("blenderFrame").src = "../sprite-blender/?item=" + encodeURIComponent(it.id) + "&embed=1";
-    blenderItem = it.id;
+function showBlender(src, title, sub){
+  if (carry){ carry = null; guides = []; }   // never leave a drag live behind a modal
+  $("blenderTitle").textContent = title;
+  $("blenderSub").textContent = sub;
+  if (blenderSrc !== src){
+    $("blenderFrame").src = src;
+    blenderSrc = src;
   }
   $("blenderModal").style.display = "flex";
+}
+
+/* Two doors into the blender. Which one you use decides what it can touch. */
+function openBlenderForItem(){
+  if (selected < 0 || !placements[selected]) return;
+  const it = byId[placements[selected].item];
+  showBlender(
+    "../sprite-blender/?mode=item&item=" + encodeURIComponent(it.id) + "&embed=1",
+    "Item art \u2014 " + it.name,
+    (it.w * TILE) + "\u00d7" + (it.h * TILE) + " px"
+  );
+}
+
+function openBlenderForSurface(which){
+  showBlender(
+    "../sprite-blender/?mode=surface&surface=" + encodeURIComponent(which) + "&embed=1",
+    which === "wall" ? "Wall art" : "Floor art",
+    "416\u00d7112 px"
+  );
 }
 
 function closeBlender(){
@@ -1701,8 +2194,15 @@ function closeBlender(){
   $("blenderModal").style.display = "none";
 }
 
-$("pickArt").addEventListener("click", openBlender);
+$("pickArt").addEventListener("click", openBlenderForItem);
+$("blenderWall").addEventListener("click", () => openBlenderForSurface("wall"));
+$("blenderFloor").addEventListener("click", () => openBlenderForSurface("floor"));
 $("blenderClose").addEventListener("click", closeBlender);
+$("blenderReload").addEventListener("click", () => {
+  const f = $("blenderFrame");
+  try { f.contentWindow.location.reload(); }
+  catch (e){ if (blenderSrc) f.src = blenderSrc; }
+});
 $("importArt").addEventListener("click", () => {
   if (selected < 0 || !placements[selected]) return;
   $("artFile").click();
@@ -1710,8 +2210,111 @@ $("importArt").addEventListener("click", () => {
 
 // the embedded blender tells us when it has written new art
 window.addEventListener("message", (e) => {
-  if (e.data && e.data.type === "art-sent") flashNote("\u2713 Art applied \u2014 close the blender to see it");
+  if (!e.data) return;
+  if (e.data.type === "art-sent") flashNote("\u2713 Art applied \u2014 close the blender to see it");
+  if (e.data.type === "surface-sent") flashNote("\u2713 " + e.data.which + " sent \u2014 close the blender to see it");
 });
+function clearSurface(which){
+  let store = {};
+  try { store = JSON.parse(localStorage.getItem(SURF_KEY) || "{}"); } catch (e){ store = {}; }
+  if (store[which] === ""){ flashNote("Already using the generated " + which + "."); return; }
+  store[which] = "";            // explicit "generated", so the built-in default doesn't come back
+  try { localStorage.setItem(SURF_KEY, JSON.stringify(store)); } catch (e){}
+  surfImgs[which] = null;     // same tab, so no storage event fires
+  syncSurfaceButtons();
+  render();
+  flashNote("\u2713 Generated " + which + " restored");
+}
+$("clearWall").addEventListener("click", () => clearSurface("wall"));
+$("clearFloor").addEventListener("click", () => clearSurface("floor"));
+
+/* ---------- pack tile picker ---------- */
+const TILE_SHEETS = { wall: "surfaces/walls-sheet.png", floor: "surfaces/floors-sheet.png" };
+const tileImgs = {};
+let tileTarget = "wall";
+
+function openTilePicker(which){
+  tileTarget = which;
+  $("tileTitle").textContent = (which === "wall" ? "Wall" : "Floor") + " tiles";
+  const img = new Image();
+  img.onload = () => {
+    tileImgs[which] = img;
+    const Z = which === "wall" ? 3 : 4;
+    const c = $("tileSheet");
+    c.width = img.width * Z;
+    c.height = img.height * Z;
+    c.dataset.z = Z;
+    const g = c.getContext("2d");
+    g.imageSmoothingEnabled = false;
+    g.drawImage(img, 0, 0, c.width, c.height);
+    g.strokeStyle = "rgba(0,0,0,.16)";
+    g.lineWidth = 1;
+    for (let x = 0; x <= img.width; x += 16){ g.beginPath(); g.moveTo(x*Z + .5, 0); g.lineTo(x*Z + .5, c.height); g.stroke(); }
+    for (let y = 0; y <= img.height; y += 16){ g.beginPath(); g.moveTo(0, y*Z + .5); g.lineTo(c.width, y*Z + .5); g.stroke(); }
+    $("tileHint").textContent = "Click any 16×16 square — it repeats across the room.";
+    $("tileModal").style.display = "flex";
+  };
+  img.onerror = () => flashNote("Couldn't load the " + which + " sheet.", true);
+  img.src = TILE_SHEETS[which];
+}
+
+$("segPal").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  setSeg("segPal", b.dataset.v);
+  palMode = b.dataset.v;
+  const furn = palMode === "furniture";
+  $("addItem").style.display = furn ? "" : "none";
+  $("palFilter").style.display = furn ? "" : "none";
+  $("palTitle").textContent = furn ? "Furniture" : (palMode === "wall" ? "Wallpaper" : palMode === "floor" ? "Flooring" : "From the pack");
+  buildPalette();
+});
+
+$("selType").addEventListener("change", (e) => {
+  if (selected < 0 || !placements[selected]) return;
+  const d = byId[placements[selected].item];
+  d.type = e.target.value;
+  for (const k of ["surface", "layer", "blocks", "anchors", "tag", "drop"]) delete d[k];
+  resolveItem(d);
+  buildPalette();
+  render();
+  persist();
+});
+
+$("pickWallTile").addEventListener("click", () => openTilePicker("wall"));
+$("pickFloorTile").addEventListener("click", () => openTilePicker("floor"));
+$("tileClose").addEventListener("click", () => { $("tileModal").style.display = "none"; });
+
+$("tileSheet").addEventListener("click", (e) => {
+  const img = tileImgs[tileTarget];
+  if (!img) return;
+  const c = $("tileSheet");
+  const Z = Number(c.dataset.z) || 3;
+  const cx = Math.floor(e.offsetX / (16 * Z)) * 16;
+  const cy = Math.floor(e.offsetY / (16 * Z)) * 16;
+  const off = document.createElement("canvas");
+  off.width = 16; off.height = 16;
+  off.getContext("2d").drawImage(img, cx, cy, 16, 16, 0, 0, 16, 16);
+  const url = off.toDataURL("image/png");
+  let store = {};
+  try { store = JSON.parse(localStorage.getItem(SURF_KEY) || "{}"); } catch (err){ store = {}; }
+  store[tileTarget] = url;
+  try { localStorage.setItem(SURF_KEY, JSON.stringify(store)); } catch (err){}
+  const im = new Image();
+  im.onload = () => { surfImgs[tileTarget] = im; syncSurfaceButtons(); render(); };
+  im.src = url;
+  $("tileModal").style.display = "none";
+  flashNote("\u2713 " + tileTarget + " tile applied");
+});
+
+$("resetLook").addEventListener("click", () => {
+  try { localStorage.removeItem(SURF_KEY); } catch (e){}
+  surfImgs.wall = null; surfImgs.floor = null;
+  loadSurfaces();
+  render();
+  syncSurfaceButtons();
+  flashNote("Back to the pack look");
+});
+
 $("resetArt").addEventListener("click", () => {
   if (selected < 0 || !placements[selected]) return;
   const it = byId[placements[selected].item];
@@ -1742,6 +2345,11 @@ $("artFile").addEventListener("change", (e) => {
 /* The sprite blender writes to the same key from its own tab; this fires in
    the other tab and we rebuild the sprite without a reload. */
 window.addEventListener("storage", (e) => {
+  if (e.key === SURF_KEY){
+    loadSurfaces();
+    flashNote("Room surface updated from the blender");
+    return;
+  }
   if (e.key !== ART_KEY) return;
   try {
     const next = e.newValue ? JSON.parse(e.newValue) : {};
@@ -1836,7 +2444,7 @@ function snapshot(){
     savedAt: new Date().toISOString(),
     settings: {
       snapMode: state.snapMode, bgDither: state.bgDither, glow: state.glow,
-      dusk: state.dusk, lightMode: state.lightMode,
+      time: state.time, lightMode: state.lightMode,
       showRaw, showSnap, showGrid,
       music: { track: music.track, loop: music.loop, vol: music.vol },
       sfx: { vol: sfx.vol }
@@ -1894,7 +2502,7 @@ function syncSegs(){
   setSeg("segGrid", showGrid ? "1" : "0");
   setSeg("segBg", showRaw ? "raw" : "pixel");
   setSeg("segGlow", state.glow ? "1" : "0");
-  setSeg("segDusk", state.dusk ? "1" : "0");
+  setSeg("segTime", state.time);
   setSeg("segLightMode", state.lightMode);
   setSeg("segDither", state.bgDither ? "1" : "0");
 }
@@ -1905,7 +2513,7 @@ function applySnapshot(s){
   if (st.snapMode) state.snapMode = st.snapMode;
   if (typeof st.bgDither === "boolean") state.bgDither = st.bgDither;
   if (typeof st.glow === "boolean") state.glow = st.glow;
-  if (typeof st.dusk === "boolean") state.dusk = st.dusk;
+  if (st.time && TIMES[st.time]) state.time = st.time;
   if (st.lightMode) state.lightMode = st.lightMode;
   if (st.music){
     if (st.music.track) music.track = st.music.track;
@@ -1942,6 +2550,18 @@ function applySnapshot(s){
       return o;
     });
   selected = -1;
+
+  // the room carries its own wallpaper and flooring
+  if (s.room && s.room.look){
+    let st = {};
+    try { st = JSON.parse(localStorage.getItem(SURF_KEY) || "{}"); } catch (e){ st = {}; }
+    for (const k of ["wall", "floor"]){
+      if (s.room.look[k] === undefined) continue;
+      st[k] = s.room.look[k] || "";
+    }
+    try { localStorage.setItem(SURF_KEY, JSON.stringify(st)); } catch (e){}
+    loadSurfaces();
+  }
 
   if (s.background && s.background.kind === "image" && s.background.data){
     bgSource = s.background;
@@ -1997,7 +2617,7 @@ function exportPng(){
   const g = c.getContext("2d");
   g.imageSmoothingEnabled = false;
   g.drawImage(scene, 0, 0, c.width, c.height);
-  if (state.glow && state.lightMode === "raw") paintRawLights(g, S);
+  if (state.lightMode === "raw") paintRawLights(g, S);
   c.toBlob(b => downloadBlob(b, "room.png"), "image/png");
   flashNote("\u2713 Exported room.png");
 }
@@ -2041,11 +2661,12 @@ $("segGlow").addEventListener("click", e => {
   sfxSwitch(state.glow);
   render();
 });
-$("segDusk").addEventListener("click", e => {
+$("segTime").addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
-  setSeg("segDusk", b.dataset.v);
-  state.dusk = b.dataset.v === "1";
-  sfxSwitch(state.dusk);
+  setSeg("segTime", b.dataset.v);
+  state.time = b.dataset.v;
+  sfxSwitch(state.time !== "day");
+  for (const it of ITEMS) if (it.windowLight) buildSprite(it);   // sky follows the hour
   render();
 });
 $("segLightMode").addEventListener("click", e => {
@@ -2093,6 +2714,106 @@ $("bgFile").addEventListener("change", (e) => {
   img.src = URL.createObjectURL(f);
 });
 
+$("resetAllArt").addEventListener("click", () => {
+  const n = Object.keys(artOverrides).length;
+  if (!n){ flashNote("No custom item art to restore."); return; }
+  for (const k of Object.keys(artOverrides)) delete artOverrides[k];
+  saveArt();
+  for (const it of ITEMS) buildSprite(it);
+  buildPalette();
+  render();
+  flashNote("\u2713 Restored " + n + " item sprite" + (n === 1 ? "" : "s"));
+});
+
+$("emptyRoom").addEventListener("click", () => {
+  placements = [];
+  selected = -1;
+  render();
+  flashNote("Empty room \u2014 start decorating");
+});
+
+/* ---------- add an item ---------- */
+let mkImg = null;
+
+function openAddItem(){
+  const sel = $("mkType");
+  if (!sel.options.length){
+    for (const k of Object.keys(TYPES)){
+      const o = document.createElement("option");
+      o.value = k; o.textContent = k;
+      sel.appendChild(o);
+    }
+    sel.value = "decor";
+  }
+  const dl = $("mkCats");
+  dl.innerHTML = "";
+  for (const c of [...new Set(ITEMS.map(i => i.category))]){
+    const o = document.createElement("option"); o.value = c;
+    dl.appendChild(o);
+  }
+  $("mkModal").style.display = "flex";
+}
+
+$("addItem").addEventListener("click", openAddItem);
+$("mkCancel").addEventListener("click", () => { $("mkModal").style.display = "none"; });
+$("mkPick").addEventListener("click", () => $("mkFile").click());
+$("mkFile").addEventListener("change", (e) => {
+  const f = e.target.files && e.target.files[0];
+  e.target.value = "";
+  if (!f) return;
+  mkImg = null;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const w = Math.max(1, Math.ceil(img.width / TILE));
+      const h = Math.max(1, Math.ceil(img.height / TILE));
+      img.tw = w; img.th = h;
+      mkImg = img;
+      $("mkSize").textContent = img.width + "×" + img.height + " px  \u2192  " + w + "×" + h + " tiles";
+      const c = $("mkCanvas");
+      const Z = Math.max(1, Math.min(3, Math.floor(76 / Math.max(img.width, img.height))));
+      c.width = img.width; c.height = img.height;
+      c.style.width = (img.width * Z) + "px";
+      c.style.height = (img.height * Z) + "px";
+      const g = c.getContext("2d");
+      g.imageSmoothingEnabled = false;
+      g.clearRect(0, 0, c.width, c.height);
+      g.drawImage(img, 0, 0);
+      if (!$("mkName").value){
+        $("mkName").value = f.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ");
+      }
+    };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(f);
+});
+$("mkSave").addEventListener("click", () => {
+  if (!mkImg){ $("mkHint").textContent = "Choose a PNG first."; return; }
+  const name = ($("mkName").value || "Item").trim();
+  const type = $("mkType").value || "decor";
+  const cat = ($("mkCat").value || TYPES[type].category).trim();
+  const tags = ($("mkTags").value || "").split(",").map(s => s.trim()).filter(Boolean);
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "item";
+  const item = {
+    id: "custom." + slug + "." + Date.now().toString(36),
+    name, type, w: mkImg.tw, h: mkImg.th, category: cat, tags,
+    img: mkImg.src, custom: true
+  };
+  resolveItem(item);
+  ITEMS.push(item);
+  buildSprite(item);
+  buildPalette();
+  saveCustomItems();
+  render();
+  $("mkModal").style.display = "none";
+  $("mkName").value = ""; $("mkCat").value = ""; $("mkTags").value = "";
+  $("mkCanvas").width = 0; $("mkCanvas").height = 0;
+  $("mkSize").textContent = "No image yet";
+  mkImg = null;
+  flashNote("\u2713 Added \"" + name + "\" \u2014 " + item.w + "×" + item.h + " tiles");
+});
+
 $("resetRoom").addEventListener("click", () => {
   bgSource = { kind: "generated" };
   rawBg = makeBackground();
@@ -2117,6 +2838,10 @@ $("copyJson").addEventListener("click", async () => {
     ta.remove();
   }
 });
+
+/* Safety net: a drag whose pointerup we never saw must not be committed later
+   by an unrelated click. */
+window.addEventListener("pointerup", () => { if (carry) endCarry(); });
 
 window.addEventListener("resize", () => render());
 
@@ -2144,17 +2869,28 @@ $("roomFile").addEventListener("change", (e) => {
 $("exportPng").addEventListener("click", exportPng);
 
 /* ---------- boot ---------- */
-buildPalette();
 if ($("palFilter")) $("palFilter").addEventListener("input", buildPalette);
 buildTracks();
 buildSfxPool("switch", 4);
 buildSfxPool("drop", 5);
 wireCanvas();
 probeStorage();
-if (!restore()) defaultRoom();
-syncMusic();
-booted = true;
-render();
+loadSurfaces();
+
+probePackArt(() => {
+  if (!packArtOK){
+    // no licensed art in this build — hide the tabs that would be empty
+    for (const v of ["pack", "wall", "floor"]){
+      const tab = document.querySelector('#segPal [data-v="' + v + '"]');
+      if (tab) tab.style.display = "none";
+    }
+  }
+  if (!restore()) defaultRoom();
+  buildPalette();
+  syncMusic();
+  booted = true;
+  render();
+});
 </script>
 </body>
 </html>
